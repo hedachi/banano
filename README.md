@@ -1,72 +1,68 @@
-# Fantasy Background Transformer 🏰✨
+# Banano Image Generator
 
-Gemini Flash 8B（旧nano-banana）を使用して画像の背景をファンタジー世界に変換するCLIツール
+Gemini APIを使用してプロンプトベースで複数の画像を並列生成するCLIツール
 
-## 🚀 セットアップ
+## 機能
 
-### 1. APIキーの取得
-[Google AI Studio](https://aistudio.google.com/app/apikey)からAPIキーを取得
+- プロンプトベースの画像生成
+- 並列実行による高速処理（デフォルト10枚同時生成）
+- カスタマイズ可能な生成枚数
 
-### 2. 環境設定
+## セットアップ
+
+1. Google AI Studioで API キーを取得
+   https://aistudio.google.com/app/apikey
+
+2. `.env`ファイルを作成してAPIキーを設定
+   ```bash
+   echo "GOOGLE_API_KEY=your-api-key-here" > .env
+   ```
+
+3. パッケージをインストール
+   ```bash
+   npm install
+   npm install -g .
+   ```
+
+## 使い方
+
 ```bash
-# .envファイルを作成
-cp .env.example .env
-
-# .envファイルを編集してAPIキーを設定
-# GOOGLE_API_KEY=your_api_key_here
+generate-images <画像パス> <プロンプト> [生成数]
 ```
 
-### 3. 依存関係のインストール
-```bash
-npm install
-```
+### 引数
 
-## 🎨 使い方
+1. **画像パス** - ベースとなる入力画像のパス
+2. **プロンプト** - 画像生成の指示文
+3. **生成数** - 生成する画像の数（デフォルト: 10）
+
+### 例
 
 ```bash
-# 基本的な使用方法
-node fantasy-bg.js your_image.jpg
+# 10枚の画像を生成（デフォルト）
+generate-images input.jpg "transform into cyberpunk style"
 
-# 出力ファイル名を指定
-node fantasy-bg.js your_image.jpg -o custom_output.jpg
+# 5枚の画像を生成
+generate-images photo.png "add fantasy elements" 5
 
-# グローバルにインストールして使う場合
-npm link
-fantasy-bg your_image.jpg
+# 20枚の画像を並列生成
+generate-images base.jpg "make it look like oil painting" 20
 ```
 
-## 📝 機能
+## 出力
 
-- 🔍 Gemini Flash 8Bで画像を分析
-- 🎨 主要な被写体を識別して詳細な説明を生成
-- 🏰 ファンタジー世界の背景プロンプトを自動生成
-- ✨ 画像にファンタジー風のカラーフィルターとエフェクトを適用
+生成された画像は入力画像と同じディレクトリに以下の形式で保存されます：
+- `{元のファイル名}_generated_1.{拡張子}`
+- `{元のファイル名}_generated_2.{拡張子}`
+- ...
 
-## 📌 注意事項
+## サポートする画像形式
 
-現在のバージョンでは、Gemini APIを使用して：
-1. 画像の分析と被写体の認識
-2. ファンタジー背景のプロンプト生成
-3. 基本的なカラーフィルターとエフェクトの適用
+- JPEG/JPG
+- PNG
+- GIF
+- WebP
 
-実際の背景置換には、以下のような画像生成APIが必要です：
-- Stable Diffusion API
-- DALL-E API
-- Midjourney API
+## ライセンス
 
-生成されたプロンプトをこれらのサービスで使用することで、完全な背景置換が可能になります。
-
-## 📁 プロジェクト構成
-
-```
-/
-├── fantasy-bg.js         # メインスクリプト
-├── package.json          # プロジェクト設定
-├── .env.example          # API key設定例
-├── .gitignore           # Git除外設定
-└── README.md            # このファイル
-```
-
----
-
-初回プロンプト: nano-bananaと呼ばれていたgoogleのgemini-flash-imageとかいうすごいやつをサクッとコマンドで動かしたい。コマンド実行時に画像のパスを渡すと、背景をファンタジー世界にしてくれるやつをまずは作って
+MIT

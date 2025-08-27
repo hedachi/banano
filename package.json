@@ -1,14 +1,15 @@
 {
-  "name": "fantasy-bg",
-  "version": "1.0.0",
-  "description": "Transform image backgrounds into fantasy worlds using Google Gemini Flash",
-  "main": "fantasy-bg.js",
+  "name": "banano-image-generator",
+  "version": "2.0.0",
+  "description": "Generate multiple images based on prompts using Google Gemini API",
+  "main": "generate-images.js",
   "type": "module",
   "bin": {
+    "generate-images": "./generate-images.js",
     "fantasy-bg": "./fantasy-bg.js"
   },
   "scripts": {
-    "start": "node fantasy-bg.js"
+    "start": "node generate-images.js"
   },
   "keywords": [
     "gemini",
