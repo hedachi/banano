@@ -47,15 +47,19 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     console.log(`🎨 [${index}] Generating image...`);
     
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
     
     const imagePart = await fileToGenerativePart(imagePath);
     
-    const fullPrompt = `Generate an image based on this prompt: ${prompt}`;
+    const fullPrompt = `Generate an image based on this input image and the following instruction: ${prompt}
+    
+    IMPORTANT: Create a new image that follows the instruction while using the input image as reference.`;
     
     const result = await model.generateContent([fullPrompt, imagePart]);
     const response = await result.response;
     
+    // 画像データを抽出
+    let imageGenerated = false;
     for (const candidate of response.candidates) {
       for (const part of candidate.content.parts) {
         if (part.inlineData) {
@@ -63,7 +67,30 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
           const buffer = Buffer.from(imageData, 'base64');
           await fs.writeFile(outputPath, buffer);
           console.log(`✅ [${index}] Image saved: ${outputPath}`);
+          imageGenerated = true;
           return outputPath;
+        }
+      }
+      if (imageGenerated) break;
+    }
+    
+    // 画像が生成されなかった場合、代替モデルを試す
+    if (!imageGenerated) {
+      console.log(`⚠️ [${index}] Trying alternative model...`);
+      
+      const altModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const altResult = await altModel.generateContent([fullPrompt, imagePart]);
+      const altResponse = await altResult.response;
+      
+      for (const candidate of altResponse.candidates) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            const imageData = part.inlineData.data;
+            const buffer = Buffer.from(imageData, 'base64');
+            await fs.writeFile(outputPath, buffer);
+            console.log(`✅ [${index}] Image saved with alternative model: ${outputPath}`);
+            return outputPath;
+          }
         }
       }
     }
