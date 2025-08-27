@@ -15,9 +15,9 @@ dotenv.config();
 const API_KEY = process.env.GOOGLE_API_KEY;
 
 if (!API_KEY) {
-  console.error('Error: GOOGLE_API_KEY not found in environment variables.');
-  console.error('Please create a .env file with your API key or export it as an environment variable.');
-  console.error('Get your API key from: https://aistudio.google.com/app/apikey');
+  console.error('エラー: 環境変数にGOOGLE_API_KEYが見つかりません');
+  console.error('.envファイルを作成するか、環境変数として設定してください');
+  console.error('APIキー取得: https://aistudio.google.com/app/apikey');
   process.exit(1);
 }
 
@@ -44,7 +44,7 @@ async function fileToGenerativePart(imagePath) {
 
 async function generateSingleImage(imagePath, prompt, outputPath, index) {
   try {
-    console.log(`🎨 [${index}] Generating image...`);
+    console.log(`🎨 [${index}] 画像生成中...`);
     
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
@@ -58,26 +58,9 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     const result = await model.generateContent([fullPrompt, imagePart]);
     const response = await result.response;
     
-    // レスポンスの詳細をデバッグ出力
-    console.log(`🔍 [${index}] Response structure:`, {
-      hasResponse: !!response,
-      hasCandidates: !!response.candidates,
-      candidatesType: typeof response.candidates,
-      candidatesIsArray: Array.isArray(response.candidates),
-      candidatesLength: response.candidates?.length || 0
-    });
-    
     // response.candidatesが存在しない場合の詳細エラー
     if (!response.candidates) {
-      console.error(`❌ [${index}] No candidates in response. Full response:`, JSON.stringify(response, null, 2));
-      
-      // テキストレスポンスを試みる
-      try {
-        const text = response.text();
-        console.error(`📄 [${index}] Response text:`, text);
-      } catch (e) {
-        console.error(`❌ [${index}] Could not get text from response:`, e.message);
-      }
+      console.error(`❌ [${index}] 画像生成失敗 (クォータ制限の可能性があります)`);
       return null;
     }
     
@@ -85,7 +68,7 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     let imageGenerated = false;
     for (const candidate of response.candidates) {
       if (!candidate.content || !candidate.content.parts) {
-        console.error(`❌ [${index}] Candidate has no content.parts:`, JSON.stringify(candidate, null, 2));
+        console.error(`❌ [${index}] 画像データ形式エラー`);
         continue;
       }
       
@@ -94,7 +77,7 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
           const imageData = part.inlineData.data;
           const buffer = Buffer.from(imageData, 'base64');
           await fs.writeFile(outputPath, buffer);
-          console.log(`✅ [${index}] Image saved: ${outputPath}`);
+          console.log(`✅ [${index}] 画像保存完了: ${outputPath}`);
           imageGenerated = true;
           return outputPath;
         }
@@ -103,31 +86,17 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     }
     
     if (!imageGenerated) {
-      console.error(`❌ [${index}] No image data found in any candidate`);
-      
-      // 全candidatesの構造を出力
-      response.candidates.forEach((cand, i) => {
-        console.error(`[${index}] Candidate ${i}:`, JSON.stringify(cand, null, 2));
-      });
+      console.error(`❌ [${index}] 画像データが見つかりません`);
     }
     
     return null;
     
   } catch (error) {
-    console.error(`❌ [${index}] Error:`, error.message);
-    console.error(`📊 [${index}] Error stack:`, error.stack);
-    
-    // GoogleGenerativeAI特有のエラー情報を出力
-    if (error.response) {
-      console.error(`📊 [${index}] Error response:`, JSON.stringify(error.response, null, 2));
+    if (error.status === 429) {
+      console.error(`❌ [${index}] クォータ制限: ${error.message}`);
+    } else {
+      console.error(`❌ [${index}] エラー: ${error.message}`);
     }
-    if (error.status) {
-      console.error(`📊 [${index}] Error status:`, error.status);
-    }
-    if (error.statusText) {
-      console.error(`📊 [${index}] Error statusText:`, error.statusText);
-    }
-    
     return null;
   }
 }
@@ -137,11 +106,11 @@ async function generateImages(imagePath, prompt, count) {
   const basename = path.basename(imagePath, ext);
   const dirname = path.dirname(imagePath);
   
-  console.log(`🚀 Starting image generation`);
-  console.log(`📁 Source image: ${imagePath}`);
-  console.log(`📝 Prompt: ${prompt}`);
-  console.log(`🔢 Number of images: ${count}`);
-  console.log(`⚡ Running ${count} generations in parallel...\n`);
+  console.log(`🚀 画像生成開始`);
+  console.log(`📁 入力画像: ${imagePath}`);
+  console.log(`📝 プロンプト: ${prompt}`);
+  console.log(`🔢 生成枚数: ${count}`);
+  console.log(`⚡ ${count}枚の画像を並列生成中...\n`);
   
   const startTime = Date.now();
   const timestamp = Date.now(); // ミリ秒のタイムスタンプを生成
@@ -158,9 +127,9 @@ async function generateImages(imagePath, prompt, count) {
   const endTime = Date.now();
   const duration = ((endTime - startTime) / 1000).toFixed(2);
   
-  console.log(`\n✨ Generation complete!`);
-  console.log(`✅ Successfully generated: ${successCount}/${count} images`);
-  console.log(`⏱️  Total time: ${duration} seconds`);
+  console.log(`\n✨ 生成完了！`);
+  console.log(`✅ 成功: ${successCount}/${count}枚`);
+  console.log(`⏱️  処理時間: ${duration}秒`);
   
   if (successCount === 0) {
     process.exit(1);
@@ -169,22 +138,22 @@ async function generateImages(imagePath, prompt, count) {
 
 program
   .name('generate-images')
-  .description('Generate multiple images based on a prompt using Gemini API')
+  .description('Gemini APIを使用してプロンプトベースで複数の画像を生成')
   .version('2.0.0')
-  .argument('<image>', 'Path to the input image')
-  .argument('<prompt>', 'Prompt for image generation')
-  .argument('[count]', 'Number of images to generate', '10')
+  .argument('<image>', '入力画像のパス')
+  .argument('<prompt>', '画像生成用のプロンプト')
+  .argument('[count]', '生成する画像数', '5')
   .action(async (imagePath, prompt, count) => {
     try {
       await fs.access(imagePath);
     } catch {
-      console.error(`❌ Error: File not found: ${imagePath}`);
+      console.error(`❌ エラー: ファイルが見つかりません: ${imagePath}`);
       process.exit(1);
     }
     
     const imageCount = parseInt(count);
     if (isNaN(imageCount) || imageCount < 1) {
-      console.error(`❌ Error: Invalid count: ${count}`);
+      console.error(`❌ エラー: 無効な生成枚数: ${count}`);
       process.exit(1);
     }
     
