@@ -58,9 +58,37 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     const result = await model.generateContent([fullPrompt, imagePart]);
     const response = await result.response;
     
+    // レスポンスの詳細をデバッグ出力
+    console.log(`🔍 [${index}] Response structure:`, {
+      hasResponse: !!response,
+      hasCandidates: !!response.candidates,
+      candidatesType: typeof response.candidates,
+      candidatesIsArray: Array.isArray(response.candidates),
+      candidatesLength: response.candidates?.length || 0
+    });
+    
+    // response.candidatesが存在しない場合の詳細エラー
+    if (!response.candidates) {
+      console.error(`❌ [${index}] No candidates in response. Full response:`, JSON.stringify(response, null, 2));
+      
+      // テキストレスポンスを試みる
+      try {
+        const text = response.text();
+        console.error(`📄 [${index}] Response text:`, text);
+      } catch (e) {
+        console.error(`❌ [${index}] Could not get text from response:`, e.message);
+      }
+      return null;
+    }
+    
     // 画像データを抽出
     let imageGenerated = false;
     for (const candidate of response.candidates) {
+      if (!candidate.content || !candidate.content.parts) {
+        console.error(`❌ [${index}] Candidate has no content.parts:`, JSON.stringify(candidate, null, 2));
+        continue;
+      }
+      
       for (const part of candidate.content.parts) {
         if (part.inlineData) {
           const imageData = part.inlineData.data;
@@ -74,32 +102,32 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
       if (imageGenerated) break;
     }
     
-    // 画像が生成されなかった場合、代替モデルを試す
     if (!imageGenerated) {
-      console.log(`⚠️ [${index}] Trying alternative model...`);
+      console.error(`❌ [${index}] No image data found in any candidate`);
       
-      const altModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-      const altResult = await altModel.generateContent([fullPrompt, imagePart]);
-      const altResponse = await altResult.response;
-      
-      for (const candidate of altResponse.candidates) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) {
-            const imageData = part.inlineData.data;
-            const buffer = Buffer.from(imageData, 'base64');
-            await fs.writeFile(outputPath, buffer);
-            console.log(`✅ [${index}] Image saved with alternative model: ${outputPath}`);
-            return outputPath;
-          }
-        }
-      }
+      // 全candidatesの構造を出力
+      response.candidates.forEach((cand, i) => {
+        console.error(`[${index}] Candidate ${i}:`, JSON.stringify(cand, null, 2));
+      });
     }
     
-    console.error(`❌ [${index}] No image generated`);
     return null;
     
   } catch (error) {
     console.error(`❌ [${index}] Error:`, error.message);
+    console.error(`📊 [${index}] Error stack:`, error.stack);
+    
+    // GoogleGenerativeAI特有のエラー情報を出力
+    if (error.response) {
+      console.error(`📊 [${index}] Error response:`, JSON.stringify(error.response, null, 2));
+    }
+    if (error.status) {
+      console.error(`📊 [${index}] Error status:`, error.status);
+    }
+    if (error.statusText) {
+      console.error(`📊 [${index}] Error statusText:`, error.statusText);
+    }
+    
     return null;
   }
 }
