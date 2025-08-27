@@ -116,10 +116,11 @@ async function generateImages(imagePath, prompt, count) {
   console.log(`⚡ Running ${count} generations in parallel...\n`);
   
   const startTime = Date.now();
+  const timestamp = Date.now(); // ミリ秒のタイムスタンプを生成
   
   const promises = [];
   for (let i = 1; i <= count; i++) {
-    const outputPath = path.join(dirname, `${basename}_generated_${i}${ext}`);
+    const outputPath = path.join(dirname, `${basename}_generated_${timestamp}_${i}${ext}`);
     promises.push(generateSingleImage(imagePath, prompt, outputPath, i));
   }
   
