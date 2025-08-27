@@ -1,0 +1,29 @@
+{
+  "name": "fantasy-bg",
+  "version": "1.0.0",
+  "description": "Transform image backgrounds into fantasy worlds using Google Gemini Flash",
+  "main": "fantasy-bg.js",
+  "type": "module",
+  "bin": {
+    "fantasy-bg": "./fantasy-bg.js"
+  },
+  "scripts": {
+    "start": "node fantasy-bg.js"
+  },
+  "keywords": [
+    "gemini",
+    "image",
+    "background",
+    "fantasy",
+    "ai",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "sharp": "^0.33.5"
+  }
+}

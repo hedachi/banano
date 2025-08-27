@@ -1,0 +1,24 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Output images
+*_fantasy.jpg
+*_fantasy.png
+*_fantasy.jpeg
+
+# Temporary files
+*.tmp
+temp/
