@@ -47,7 +47,7 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
     console.log(`🎨 [${index}] 画像生成中...`);
     
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
     
     const imagePart = await fileToGenerativePart(imagePath);
     
@@ -142,7 +142,7 @@ program
   .version('2.0.0')
   .argument('<image>', '入力画像のパス')
   .argument('<prompt>', '画像生成用のプロンプト')
-  .argument('[count]', '生成する画像数', '5')
+  .argument('[count]', '生成する画像数', '1')
   .action(async (imagePath, prompt, count) => {
     try {
       await fs.access(imagePath);
