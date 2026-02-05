@@ -101,10 +101,10 @@ async function generateSingleImage(imagePath, prompt, outputPath, index) {
   }
 }
 
-async function generateImages(imagePath, prompt, count) {
+async function generateImages(imagePath, prompt, count, outputDir) {
   const ext = path.extname(imagePath);
   const basename = path.basename(imagePath, ext);
-  const dirname = path.dirname(imagePath);
+  const dirname = outputDir || path.dirname(imagePath);
   
   console.log(`🚀 画像生成開始`);
   console.log(`📁 入力画像: ${imagePath}`);
@@ -127,9 +127,13 @@ async function generateImages(imagePath, prompt, count) {
   const endTime = Date.now();
   const duration = ((endTime - startTime) / 1000).toFixed(2);
   
+  const costPerImage = 0.134;
+  const totalCost = successCount * costPerImage;
+
   console.log(`\n✨ 生成完了！`);
   console.log(`✅ 成功: ${successCount}/${count}枚`);
   console.log(`⏱️  処理時間: ${duration}秒`);
+  console.log(`💰 概算コスト: $${totalCost.toFixed(3)} (${successCount}枚 × $${costPerImage}/枚)`);
   
   if (successCount === 0) {
     process.exit(1);
@@ -143,6 +147,7 @@ program
   .argument('<image>', '入力画像のパス')
   .argument('<prompt>', '画像生成用のプロンプト')
   .argument('[count]', '生成する画像数', '1')
+  .option('-o, --output <dir>', '出力先ディレクトリ')
   .action(async (imagePath, prompt, count) => {
     try {
       await fs.access(imagePath);
@@ -157,7 +162,12 @@ program
       process.exit(1);
     }
     
-    await generateImages(imagePath, prompt, imageCount);
+    const outputDir = program.opts().output;
+    if (outputDir) {
+      await fs.mkdir(outputDir, { recursive: true });
+    }
+
+    await generateImages(imagePath, prompt, imageCount, outputDir);
   });
 
 program.parse();
