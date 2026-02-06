@@ -186,7 +186,7 @@ async function showDetail(id) {
   const childSection = document.getElementById('children-section');
   if (data.children.length > 0) {
     childSection.classList.remove('hidden');
-    document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="size-picker" data-target="children"></span>`;
+    document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="size-picker" data-target="children"></span> <span class="review-link" onclick="openReviewFromDetail()">レビュー</span>`;
     document.getElementById('children-grid').innerHTML = data.children.map(c => `
       <div class="img-card-wrap">
         <div class="img-card" onclick="showDetail('${c.id}')">
@@ -420,6 +420,14 @@ async function reviewToggleFav() {
 function reviewUseAsBase() {
   const child = reviewState.childImages[reviewState.currentIndex];
   showDetail(child.id);
+}
+
+function openReviewFromDetail() {
+  if (!currentImageData || currentImageData.children.length === 0) return;
+  const parent = { id: currentImageId, filename: currentImageData.filename };
+  const children = currentImageData.children.map(c => ({ id: c.id, filename: c.filename, is_favorite: c.is_favorite }));
+  const prompt = currentImageData.children[0].prompt || '';
+  showReview(parent, children, prompt);
 }
 
 // タッチスワイプ
