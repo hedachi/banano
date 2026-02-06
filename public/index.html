@@ -40,22 +40,26 @@
     <div id="detail-view" class="hidden">
       <!-- 親画像 -->
       <div id="parent-section" class="hidden">
-        <div class="section-label">親画像</div>
+        <div class="section-label">親画像
+          <span class="size-picker" data-target="parent"></span>
+        </div>
         <div id="parent-thumb" class="img-thumb" onclick="navigateToParent()"></div>
         <div class="arrow-down">&darr;</div>
       </div>
 
       <!-- 選択画像 -->
-      <div class="section-label">選択中</div>
-      <div id="selected-image" class="selected-image">
-        <span id="selected-fav" class="fav-btn" onclick="toggleFavorite(currentImageId, this)">&#9734;</span>
+      <div class="section-label">選択中
+        <span class="size-picker" data-target="selected"></span>
       </div>
+      <div id="selected-image" class="selected-image"></div>
+      <div id="selected-fav-wrap"></div>
       <div id="selected-prompt" class="prompt-text hidden"></div>
       <div id="selected-date" class="date-text"></div>
 
       <!-- 生成フォーム -->
       <div class="generate-form">
         <label class="input-label">プロンプト</label>
+        <div id="gen-prompt-history" class="prompt-history"></div>
         <textarea id="gen-prompt" placeholder="生成内容を入力..."></textarea>
 
         <div class="option-row">
@@ -89,7 +93,9 @@
       <!-- 子画像 -->
       <div id="children-section" class="hidden">
         <div class="arrow-down">&darr;</div>
-        <div id="children-label" class="section-label"></div>
+        <div id="children-label" class="section-label">
+          <span class="size-picker" data-target="children"></span>
+        </div>
         <div id="children-grid" class="grid-children"></div>
       </div>
     </div>
@@ -99,6 +105,7 @@
       <div class="section-label">ベース画像なしで生成</div>
       <div class="generate-form">
         <label class="input-label">プロンプト</label>
+        <div id="new-gen-prompt-history" class="prompt-history"></div>
         <textarea id="new-gen-prompt" placeholder="生成内容を入力..."></textarea>
 
         <div class="option-row">

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成結果レビューUI 案 (v5) - 上下分割ベース</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 18px; margin: 40px 0 8px; color: #333; }
+  h1:first-child { margin-top: 0; }
+  .note { font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.6; }
+  .pros { font-size: 11px; color: #2a7; margin-top: 4px; }
+  .cons { font-size: 11px; color: #c55; margin-bottom: 12px; }
+  hr { border: none; border-top: 2px dashed #ddd; margin: 50px 0; }
+
+  .phone { width: 375px; height: 812px; border: 3px solid #333; border-radius: 40px; overflow: hidden; background: #fff; margin-bottom: 30px; display: flex; flex-direction: column; }
+  .status-bar { background: #333; color: #fff; text-align: center; font-size: 12px; padding: 6px; flex-shrink: 0; }
+  .header { background: #1a1a2e; color: #fff; padding: 10px 16px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .header a { color: #aaa; text-decoration: none; font-size: 13px; }
+  .body { padding: 8px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* 共通パーツ */
+  .img-label { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.55); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; z-index: 2; }
+  .counter { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.55); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; z-index: 2; }
+  .arrow-l, .arrow-r { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; background: rgba(0,0,0,0.35); color: #fff; font-size: 20px; line-height: 32px; text-align: center; border-radius: 50%; cursor: pointer; z-index: 2; }
+  .arrow-l { left: 6px; }
+  .arrow-r { right: 6px; }
+  .dots { display: flex; justify-content: center; gap: 5px; padding: 4px 0; flex-shrink: 0; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #ddd; }
+  .dot.active { background: #4a6cf7; }
+
+  /* 情報バー */
+  .info-bar { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: #f7f7f7; border-radius: 6px; flex-shrink: 0; }
+  .info-bar .prompt-text { flex: 1; font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .info-bar .prompt-label { font-size: 9px; color: #aaa; flex-shrink: 0; }
+
+  /* アクションボタン */
+  .bottom-actions { display: flex; gap: 6px; padding-top: 6px; flex-shrink: 0; }
+  .action-btn { flex: 1; padding: 9px; border-radius: 8px; text-align: center; font-size: 12px; border: none; cursor: pointer; }
+  .action-fav { background: #fffbeb; border: 1px solid #ffc107; color: #b8860b; }
+  .action-use { background: #4a6cf7; color: #fff; }
+
+  /* ===== 案B1: 上下均等 + プロンプト ===== */
+  .b1-top { height: 42%; border-radius: 8px; overflow: hidden; background: #eee; position: relative; margin-bottom: 4px; flex-shrink: 0; }
+  .b1-top img { width: 100%; height: 100%; object-fit: contain; }
+  .b1-bottom { flex: 1; border-radius: 8px; overflow: hidden; background: #eee; position: relative; }
+  .b1-bottom img { width: 100%; height: 100%; object-fit: contain; }
+
+  /* ===== 案B2: 上下均等 + 情報集約帯 ===== */
+  .b2-top { height: 42%; border-radius: 8px; overflow: hidden; background: #eee; position: relative; margin-bottom: 4px; flex-shrink: 0; }
+  .b2-top img { width: 100%; height: 100%; object-fit: contain; }
+  .b2-mid { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f7f7f7; border-radius: 6px; margin-bottom: 4px; flex-shrink: 0; }
+  .b2-mid .prompt-text { flex: 1; font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b2-mid .fav-btn { width: 36px; height: 28px; background: #fffbeb; border: 1px solid #ffc107; border-radius: 6px; color: #b8860b; font-size: 16px; text-align: center; line-height: 26px; cursor: pointer; flex-shrink: 0; }
+  .b2-mid .fav-btn.on { background: #ffc107; color: #fff; }
+  .b2-mid .cnt { font-size: 11px; color: #888; flex-shrink: 0; white-space: nowrap; }
+  .b2-bottom { flex: 1; border-radius: 8px; overflow: hidden; background: #eee; position: relative; }
+  .b2-bottom img { width: 100%; height: 100%; object-fit: contain; }
+
+  /* ===== 案B3: プロンプト上部 + 画像最大化 ===== */
+  .b3-prompt { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #f7f7f7; border-radius: 6px; margin-bottom: 4px; flex-shrink: 0; }
+  .b3-prompt .prompt-text { flex: 1; font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b3-prompt .prompt-label { font-size: 9px; color: #aaa; flex-shrink: 0; }
+  .b3-top { height: 43%; border-radius: 8px; overflow: hidden; background: #eee; position: relative; margin-bottom: 4px; flex-shrink: 0; }
+  .b3-top img { width: 100%; height: 100%; object-fit: contain; }
+  .b3-bottom { flex: 1; border-radius: 8px; overflow: hidden; background: #eee; position: relative; }
+  .b3-bottom img { width: 100%; height: 100%; object-fit: contain; }
+</style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<h1>案B1: 上下均等 + プロンプト帯 + 2ボタン</h1>
+<p class="note">
+  上下をほぼ均等に分割。画像間にプロンプトバーを挟む。<br>
+  下部に「お気に入り」「ベースに生成」の2ボタン。次の画像へはスワイプ。
+</p>
+<div class="pros">+ プロンプトが常に見える / 上下均等で比較しやすい / ボタン配置がシンプル</div>
+<div class="cons">- プロンプトバー+ボタンで画像エリアがやや狭くなる</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果 (10枚)</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="b1-top">
+      <img src="before.jpeg">
+      <div class="img-label">BEFORE (ベース)</div>
+    </div>
+
+    <div class="info-bar" style="margin-bottom: 4px;">
+      <div class="prompt-label">prompt</div>
+      <div class="prompt-text">"鎧を西洋ファンタジー風に変更 兜あり"</div>
+    </div>
+
+    <div class="b1-bottom">
+      <div class="arrow-l">&lsaquo;</div>
+      <img src="after.jpeg">
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="img-label">AFTER</div>
+      <div class="counter">3 / 10</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">ベースに生成</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<h1>案B2: 上下均等 + 中央に情報集約帯 (プロンプト+★+カウンター)</h1>
+<p class="note">
+  画像を上下均等に大きく表示。間に情報帯を1行に凝縮。<br>
+  情報帯: プロンプト + お気に入り★ボタン(大きめタップ領域) + カウンター(3/10)。<br>
+  下部ボタンは「ベースに生成」のみ。画像エリアを最大化。
+</p>
+<div class="pros">+ 画像エリアが最大 / 情報が1行に集約 / ★がタップしやすいボタン型</div>
+<div class="cons">- ボタンが1つしかないのでお気に入りは中央帯でしかできない</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果 (10枚)</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="b2-top">
+      <img src="before.jpeg">
+      <div class="img-label">BEFORE (ベース)</div>
+    </div>
+
+    <div class="b2-mid">
+      <div class="prompt-text">"鎧を西洋ファンタジー風に変更 兜あり"</div>
+      <div class="fav-btn on">&#9733;</div>
+      <div class="cnt">3/10</div>
+    </div>
+
+    <div class="b2-bottom">
+      <div class="arrow-l">&lsaquo;</div>
+      <img src="after.jpeg">
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="img-label">AFTER</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-use" style="flex: 1;">&#x27A1; この画像をベースに生成</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<h1>案B3: プロンプトをヘッダ直下 + 画像上下均等 + 2ボタン</h1>
+<p class="note">
+  プロンプトをヘッダ直下に配置し、画像間には何も挟まない。<br>
+  BEFORE/AFTERが隙間なく上下に並ぶので視線移動が最小。<br>
+  下部に「お気に入り」「ベースに生成」。カウンターはAFTER画像上に。
+</p>
+<div class="pros">+ 画像間に障壁がなく比較しやすい / プロンプトも見える / 2ボタンでバランスよい</div>
+<div class="cons">- プロンプトが画像から離れている</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果 (10枚)</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="b3-prompt">
+      <div class="prompt-label">prompt</div>
+      <div class="prompt-text">"鎧を西洋ファンタジー風に変更 兜あり"</div>
+    </div>
+
+    <div class="b3-top">
+      <img src="before.jpeg">
+      <div class="img-label">BEFORE (ベース)</div>
+    </div>
+
+    <div class="b3-bottom" style="margin-top: 4px;">
+      <div class="arrow-l">&lsaquo;</div>
+      <img src="after.jpeg">
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="img-label">AFTER</div>
+      <div class="counter">3 / 10</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">ベースに生成</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

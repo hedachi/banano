@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Before/After 比較UI 案</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 18px; margin: 40px 0 8px; color: #333; }
+  h1:first-child { margin-top: 0; }
+  .note { font-size: 12px; color: #888; margin-bottom: 10px; line-height: 1.6; }
+  .pros { font-size: 11px; color: #2a7; margin-top: 6px; }
+  .cons { font-size: 11px; color: #c55; }
+  .phone { width: 375px; border: 3px solid #333; border-radius: 20px; overflow: hidden; background: #fff; margin-bottom: 20px; }
+  .status-bar { background: #333; color: #fff; text-align: center; font-size: 12px; padding: 4px; }
+  .header { background: #1a1a2e; color: #fff; padding: 12px 16px; font-size: 14px; display: flex; justify-content: space-between; }
+  .body { padding: 12px; }
+  .img-box { background: #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 13px; font-weight: bold; overflow: hidden; position: relative; }
+  .img-box.before { background: #fde; }
+  .img-box.after { background: #def; }
+  .label { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+  .mode-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .mode-tab { padding: 6px 10px; font-size: 11px; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #888; }
+  .mode-tab.active { background: #4a6cf7; color: #fff; border-color: #4a6cf7; }
+  .slider-track { position: relative; border-radius: 8px; overflow: hidden; height: 280px; }
+  .slider-before { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fde; display: flex; align-items: center; justify-content: center; color: #c88; font-weight: bold; }
+  .slider-after { position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: #def; display: flex; align-items: center; justify-content: center; color: #88c; font-weight: bold; overflow: hidden; border-right: 3px solid #fff; }
+  .slider-handle { position: absolute; top: 0; left: 50%; width: 3px; height: 100%; background: #fff; }
+  .slider-handle::after { content: ''; position: absolute; top: 50%; left: -14px; width: 30px; height: 30px; background: #fff; border-radius: 50%; border: 2px solid #4a6cf7; transform: translateY(-50%); }
+  .slider-hint { text-align: center; font-size: 11px; color: #4a6cf7; margin-top: 6px; }
+  .side-by-side { display: flex; gap: 4px; }
+  .side-by-side .img-box { flex: 1; height: 180px; }
+  .top-bottom .img-box { width: 100%; height: 160px; margin-bottom: 4px; }
+  .tap-area { position: relative; height: 280px; border-radius: 8px; overflow: hidden; }
+  .tap-overlay { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 4px 12px; border-radius: 12px; }
+  .opacity-slider { width: 100%; margin-top: 8px; }
+  .opacity-area { position: relative; height: 280px; border-radius: 8px; overflow: hidden; }
+  .opacity-before { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fde; display: flex; align-items: center; justify-content: center; color: #c88; font-weight: bold; }
+  .opacity-after { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #def; display: flex; align-items: center; justify-content: center; color: #88c; font-weight: bold; opacity: 0.5; }
+  .swipe-area { position: relative; height: 280px; border-radius: 8px; overflow: hidden; }
+  .swipe-indicator { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+  .swipe-dot { width: 8px; height: 8px; border-radius: 50%; background: #ddd; }
+  .swipe-dot.active { background: #4a6cf7; }
+  hr { border: none; border-top: 2px dashed #ddd; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>A. スライダー比較</h1>
+<p class="note">
+  画像を重ねて、真ん中のバーを左右にドラッグして before/after を切り替え。<br>
+  細部の比較に最適。ピクセル単位で同じ位置を比較できる。
+</p>
+<div class="pros">+ 細部の差分比較に最強 / ピクセル単位で一致する位置を比較</div>
+<div class="cons">- 画像サイズが違うとズレる / ドラッグ操作が必要</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header"><span>&larr; 戻る</span><span>比較モード</span></div>
+  <div class="body">
+    <div class="mode-tabs">
+      <div class="mode-tab active">スライダー</div>
+      <div class="mode-tab">並列</div>
+      <div class="mode-tab">タップ</div>
+      <div class="mode-tab">透過</div>
+    </div>
+    <div class="slider-track">
+      <div class="slider-before">BEFORE (親画像)</div>
+      <div class="slider-after">AFTER (子画像)</div>
+      <div class="slider-handle"></div>
+    </div>
+    <div class="slider-hint">&larr; ドラッグで比較 &rarr;</div>
+  </div>
+</div>
+
+<hr>
+
+<h1>B. 左右並列</h1>
+<p class="note">
+  before/after を横に並べる。全体の印象の違いを一目で把握。<br>
+  スマホだと各画像が小さくなるのが弱点。
+</p>
+<div class="pros">+ 全体比較が一目でわかる / 操作不要</div>
+<div class="cons">- スマホで各画像が小さい / 細部比較は難しい</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header"><span>&larr; 戻る</span><span>比較モード</span></div>
+  <div class="body">
+    <div class="mode-tabs">
+      <div class="mode-tab">スライダー</div>
+      <div class="mode-tab active">並列</div>
+      <div class="mode-tab">タップ</div>
+      <div class="mode-tab">透過</div>
+    </div>
+    <div class="side-by-side">
+      <div class="img-box before"><span class="label">BEFORE</span>親画像</div>
+      <div class="img-box after"><span class="label">AFTER</span>子画像</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<h1>C. タップ切替</h1>
+<p class="note">
+  画面タップで before/after を瞬時に切り替え。<br>
+  フルサイズで表示しつつ、パラパラ漫画のように差分が見える。
+</p>
+<div class="pros">+ フルサイズ表示 / 直感的 / 差分が「動き」で見える</div>
+<div class="cons">- 同時比較はできない / 記憶に頼る部分がある</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header"><span>&larr; 戻る</span><span>比較モード</span></div>
+  <div class="body">
+    <div class="mode-tabs">
+      <div class="mode-tab">スライダー</div>
+      <div class="mode-tab">並列</div>
+      <div class="mode-tab active">タップ</div>
+      <div class="mode-tab">透過</div>
+    </div>
+    <div class="tap-area">
+      <div style="width:100%; height:100%; background:#def; display:flex; align-items:center; justify-content:center; color:#88c; font-weight:bold;">AFTER (子画像)</div>
+      <div class="tap-overlay">タップで BEFORE / AFTER 切替</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<h1>D. 透過オーバーレイ</h1>
+<p class="note">
+  before の上に after を重ねて、透明度スライダーで調整。<br>
+  構図やポーズの微妙な変化の確認向き。
+</p>
+<div class="pros">+ 位置ズレや構図変化が一発でわかる</div>
+<div class="cons">- 色の比較は難しい / 直感的でない</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header"><span>&larr; 戻る</span><span>比較モード</span></div>
+  <div class="body">
+    <div class="mode-tabs">
+      <div class="mode-tab">スライダー</div>
+      <div class="mode-tab">並列</div>
+      <div class="mode-tab">タップ</div>
+      <div class="mode-tab active">透過</div>
+    </div>
+    <div class="opacity-area">
+      <div class="opacity-before">BEFORE (親画像)</div>
+      <div class="opacity-after">AFTER (子画像)</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+      <span style="font-size:11px; color:#888;">BEFORE</span>
+      <input type="range" class="opacity-slider" min="0" max="100" value="50">
+      <span style="font-size:11px; color:#888;">AFTER</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<h1>提案: 全部入りタブ切替</h1>
+<p class="note">
+  上のワイヤーフレームの通り、比較モード内でタブで切替可能にする。<br>
+  子画像一覧から任意の子をタップ → 比較モードに入る。<br>
+  用途に応じてスライダー/並列/タップ/透過を選べる。<br>
+  最後に使ったモードを localStorage で記憶。
+</p>
+
+</body>
+</html>

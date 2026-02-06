@@ -28,19 +28,33 @@ header {
   font-weight: normal;
   font-size: 14px;
 }
-/* お気に入りボタン (画像上) */
+/* お気に入りボタン (画像の下) */
 .fav-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  margin-top: 6px;
+  font-size: 13px;
   cursor: pointer;
-  color: #666;
-  text-shadow: 0 0 4px rgba(0,0,0,0.5);
-  z-index: 5;
-  line-height: 1;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #888;
 }
-.fav-btn.active { color: #ffc107; }
+.fav-btn:hover { background: #f5f5f5; }
+.fav-btn .star { font-size: 16px; }
+.fav-btn.active { border-color: #ffc107; background: #fffbeb; color: #b8860b; }
+.fav-btn.active .star { color: #ffc107; }
+
+/* 子画像用の小さいお気に入りボタン */
+.img-card-wrap { position: relative; }
+.img-card-wrap .fav-btn {
+  font-size: 11px;
+  padding: 2px 6px;
+  margin-top: 4px;
+}
+.img-card-wrap .fav-btn .star { font-size: 13px; }
 
 /* ボタン */
 .btn-row {
@@ -144,9 +158,32 @@ header {
   margin: 4px 0;
 }
 
+/* サイズピッカー */
+.size-picker {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.size-btn {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  background: #fff;
+  color: #888;
+  line-height: 1.4;
+}
+.size-btn.active {
+  background: #4a6cf7;
+  color: #fff;
+  border-color: #4a6cf7;
+}
+
+/* 親画像サムネイル */
 .img-thumb {
-  width: 80px;
-  height: 80px;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -156,10 +193,19 @@ header {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
+/* 親サイズ */
+.img-thumb.size-1 { width: 60px; height: 60px; }
+.img-thumb.size-2 { width: 100px; height: 100px; }
+.img-thumb.size-3 { width: 160px; height: 160px; }
+.img-thumb.size-4 { width: 240px; height: 240px; }
+.img-thumb.size-5 { width: 360px; height: 360px; }
+.img-thumb.size-full { width: auto; height: auto; }
+.img-thumb.size-full img { object-fit: contain; }
 
+/* 選択画像 */
 .selected-image {
-  width: 100%;
   border-radius: 8px;
   overflow: hidden;
   background: #ddd;
@@ -169,6 +215,23 @@ header {
   width: 100%;
   display: block;
 }
+.selected-image.size-1 { max-width: 120px; }
+.selected-image.size-2 { max-width: 200px; }
+.selected-image.size-3 { max-width: 320px; }
+.selected-image.size-4 { max-width: 480px; }
+.selected-image.size-5 { max-width: 640px; }
+.selected-image.size-full { max-width: none; }
+.selected-image.size-full img { width: auto; max-width: 100%; }
+
+/* 子画像グリッドサイズ - 選択画像と同じmax-width基準 */
+.grid-children.size-1 { grid-template-columns: repeat(auto-fill, 120px); }
+.grid-children.size-2 { grid-template-columns: repeat(auto-fill, 200px); }
+.grid-children.size-3 { grid-template-columns: repeat(auto-fill, 320px); }
+.grid-children.size-4 { grid-template-columns: repeat(auto-fill, 480px); }
+.grid-children.size-5 { grid-template-columns: repeat(auto-fill, 640px); }
+.grid-children.size-full { grid-template-columns: 1fr; }
+.grid-children.size-full .img-card { aspect-ratio: auto; }
+.grid-children.size-full .img-card img { height: auto; }
 
 .prompt-text {
   font-size: 13px;
@@ -184,6 +247,28 @@ header {
   color: #aaa;
   margin-bottom: 8px;
 }
+
+/* プロンプト履歴 */
+.prompt-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.prompt-chip {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #e8ecff;
+  border: 1px solid #c5cdff;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #444;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prompt-chip:hover { background: #d0d8ff; }
 
 /* 生成フォーム */
 .generate-form {
@@ -284,5 +369,4 @@ select {
   }
   .grid { grid-template-columns: repeat(4, 1fr); }
   .grid-children { grid-template-columns: repeat(4, 1fr); }
-  .selected-image { max-width: 500px; }
 }

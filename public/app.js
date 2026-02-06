@@ -2,6 +2,64 @@ let currentFilter = 'favorites';
 let currentImageId = null;
 let currentImageData = null;
 
+// サイズ設定 (localStorage で保持)
+const SIZE_LABELS = ['1', '2', '3', '4', '5', '原寸'];
+const SIZE_CLASSES = ['size-1', 'size-2', 'size-3', 'size-4', 'size-5', 'size-full'];
+const sizeState = {
+  parent: parseInt(localStorage.getItem('size-parent') || '1'),
+  selected: parseInt(localStorage.getItem('size-selected') || '4'),
+  children: parseInt(localStorage.getItem('size-children') || '2')
+};
+
+function initSizePickers() {
+  document.querySelectorAll('.size-picker').forEach(picker => {
+    const target = picker.dataset.target;
+    picker.innerHTML = SIZE_LABELS.map((label, i) =>
+      `<span class="size-btn ${i === sizeState[target] ? 'active' : ''}" onclick="setSize('${target}', ${i}, this)">${label}</span>`
+    ).join('');
+  });
+  applySize('parent');
+  applySize('selected');
+  applySize('children');
+}
+
+function setSize(target, index, btnEl) {
+  sizeState[target] = index;
+  localStorage.setItem('size-' + target, index);
+  btnEl.parentElement.querySelectorAll('.size-btn').forEach((b, i) => b.classList.toggle('active', i === index));
+  applySize(target);
+}
+
+function applySize(target) {
+  const cls = SIZE_CLASSES[sizeState[target]];
+  const ids = { parent: 'parent-thumb', selected: 'selected-image', children: 'children-grid' };
+  const el = document.getElementById(ids[target]);
+  SIZE_CLASSES.forEach(c => el.classList.remove(c));
+  el.classList.add(cls);
+}
+
+// --- プロンプト履歴 (localStorage, 直近5件) ---
+
+function getPromptHistory() {
+  try { return JSON.parse(localStorage.getItem('prompt-history') || '[]'); } catch { return []; }
+}
+
+function savePromptToHistory(prompt) {
+  let history = getPromptHistory().filter(p => p !== prompt);
+  history.unshift(prompt);
+  if (history.length > 5) history = history.slice(0, 5);
+  localStorage.setItem('prompt-history', JSON.stringify(history));
+}
+
+function renderPromptHistory(containerId, textareaId) {
+  const container = document.getElementById(containerId);
+  const history = getPromptHistory();
+  if (history.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = history.map(p =>
+    `<span class="prompt-chip" onclick="document.getElementById('${textareaId}').value=this.dataset.prompt" data-prompt="${p.replace(/"/g, '&quot;')}">${p.length > 40 ? p.slice(0, 40) + '...' : p}</span>`
+  ).join('');
+}
+
 // --- ギャラリー ---
 
 async function loadGallery() {
@@ -56,6 +114,14 @@ async function uploadImage(file) {
 
 // --- 詳細画面 ---
 
+function favBtnHtml(id, isFav) {
+  return `<span class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${id}', this)"><span class="star">${isFav ? '&#9733;' : '&#9734;'}</span> ${isFav ? 'お気に入り' : 'お気に入りに追加'}</span>`;
+}
+
+function favBtnSmallHtml(id, isFav) {
+  return `<span class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${id}', this)"><span class="star">${isFav ? '&#9733;' : '&#9734;'}</span></span>`;
+}
+
 async function showDetail(id) {
   const res = await fetch(`/api/images/${id}`);
   const data = await res.json();
@@ -80,8 +146,10 @@ async function showDetail(id) {
 
   // 選択画像
   document.getElementById('selected-image').innerHTML =
-    `<span class="fav-btn ${data.is_favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${data.id}', this)">&#973${data.is_favorite ? '3' : '4'};</span>` +
     `<img src="/uploads/${data.filename}">`;
+
+  // お気に入りボタン (画像の下)
+  document.getElementById('selected-fav-wrap').innerHTML = favBtnHtml(data.id, data.is_favorite);
 
   const promptEl = document.getElementById('selected-prompt');
   if (data.prompt) {
@@ -99,17 +167,25 @@ async function showDetail(id) {
   const childSection = document.getElementById('children-section');
   if (data.children.length > 0) {
     childSection.classList.remove('hidden');
-    document.getElementById('children-label').textContent = `子画像 (${data.children.length})`;
+    document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="size-picker" data-target="children"></span>`;
     document.getElementById('children-grid').innerHTML = data.children.map(c => `
-      <div class="img-card" onclick="showDetail('${c.id}')">
-        <img src="/uploads/${c.filename}" loading="lazy">
-        <span class="fav-btn ${c.is_favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${c.id}', this)">&#973${c.is_favorite ? '3' : '4'};</span>
-        ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
+      <div class="img-card-wrap">
+        <div class="img-card" onclick="showDetail('${c.id}')">
+          <img src="/uploads/${c.filename}" loading="lazy">
+          ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
+        </div>
+        ${favBtnSmallHtml(c.id, c.is_favorite)}
       </div>
     `).join('');
   } else {
     childSection.classList.add('hidden');
   }
+
+  // サイズピッカー初期化・適用
+  initSizePickers();
+
+  // プロンプト履歴
+  renderPromptHistory('gen-prompt-history', 'gen-prompt');
 
   // プロンプト欄をリセット
   document.getElementById('gen-prompt').value = '';
@@ -124,7 +200,12 @@ function navigateToParent() {
 async function toggleFavorite(id, btnEl) {
   const res = await fetch(`/api/images/${id}/favorite`, { method: 'POST' });
   const { is_favorite } = await res.json();
-  btnEl.innerHTML = is_favorite ? '&#9733;' : '&#9734;';
+  const isSmall = !btnEl.textContent.includes('お気に入り');
+  if (isSmall) {
+    btnEl.querySelector('.star').innerHTML = is_favorite ? '&#9733;' : '&#9734;';
+  } else {
+    btnEl.innerHTML = `<span class="star">${is_favorite ? '&#9733;' : '&#9734;'}</span> ${is_favorite ? 'お気に入り' : 'お気に入りに追加'}`;
+  }
   btnEl.classList.toggle('active', !!is_favorite);
 }
 
@@ -133,6 +214,8 @@ async function toggleFavorite(id, btnEl) {
 async function generate() {
   const prompt = document.getElementById('gen-prompt').value.trim();
   if (!prompt) return;
+
+  savePromptToHistory(prompt);
 
   const count = parseInt(document.getElementById('gen-count').value);
   const temperature = parseFloat(document.getElementById('gen-temp').value);
@@ -166,7 +249,6 @@ async function generate() {
       if (!line.startsWith('data: ')) continue;
       const data = JSON.parse(line.slice(6));
       if (data.done) {
-        // 完了 - 詳細をリロード
         await showDetail(currentImageId);
         document.getElementById('gen-btn').disabled = false;
         return;
@@ -190,11 +272,14 @@ function showNewGenerate() {
   document.getElementById('new-gen-results').innerHTML = '';
   document.getElementById('new-gen-progress').classList.add('hidden');
   document.getElementById('new-gen-btn').disabled = false;
+  renderPromptHistory('new-gen-prompt-history', 'new-gen-prompt');
 }
 
 async function generateNew() {
   const prompt = document.getElementById('new-gen-prompt').value.trim();
   if (!prompt) return;
+
+  savePromptToHistory(prompt);
 
   const count = parseInt(document.getElementById('new-gen-count').value);
   const temperature = parseFloat(document.getElementById('new-gen-temp').value);

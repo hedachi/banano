@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>比較UI v2 - スワイプ式</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 18px; margin: 40px 0 8px; color: #333; }
+  h1:first-child { margin-top: 0; }
+  .note { font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.6; }
+  .phone { width: 375px; height: 812px; border: 3px solid #333; border-radius: 40px; overflow: hidden; background: #fff; margin-bottom: 30px; display: flex; flex-direction: column; }
+  .status-bar { background: #333; color: #fff; text-align: center; font-size: 12px; padding: 6px; flex-shrink: 0; }
+  .header { background: #1a1a2e; color: #fff; padding: 12px 16px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .header a { color: #aaa; text-decoration: none; font-size: 13px; }
+  .body { padding: 10px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .parent-bar { display: flex; align-items: center; gap: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px; margin-bottom: 8px; flex-shrink: 0; }
+  .parent-thumb { width: 56px; height: 56px; border-radius: 6px; background: #fde; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #c88; font-weight: bold; flex-shrink: 0; }
+  .parent-info { font-size: 11px; color: #888; }
+  .parent-label { font-size: 10px; color: #aaa; }
+
+  .child-area { flex: 1; position: relative; border-radius: 8px; overflow: hidden; background: #def; display: flex; align-items: center; justify-content: center; }
+  .child-img { color: #88c; font-weight: bold; font-size: 16px; text-align: center; line-height: 1.6; }
+  .child-counter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; }
+  .swipe-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 4px 14px; border-radius: 12px; white-space: nowrap; }
+  .swipe-arrow-l { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 24px; color: rgba(0,0,0,0.2); }
+  .swipe-arrow-r { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 24px; color: rgba(0,0,0,0.2); }
+
+  .bottom-actions { display: flex; gap: 8px; padding-top: 8px; flex-shrink: 0; }
+  .action-btn { flex: 1; padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; border: none; cursor: pointer; }
+  .action-fav { background: #fffbeb; border: 1px solid #ffc107; color: #b8860b; }
+  .action-use { background: #4a6cf7; color: #fff; }
+</style>
+</head>
+<body>
+
+<h1>生成結果レビュー (スワイプ式)</h1>
+<p class="note">
+  生成完了後、この画面に自動遷移。<br>
+  親画像が上部に固定、子画像は1枚ずつ大きく表示。<br>
+  左右スワイプで子画像を切替。
+</p>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 戻る</a>
+    <span>生成結果</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="parent-bar">
+      <div class="parent-thumb">BEFORE</div>
+      <div class="parent-info">
+        <div class="parent-label">ベース画像</div>
+        <div>"鎧を西洋ファンタジー風に"</div>
+      </div>
+    </div>
+
+    <div class="child-area">
+      <div class="swipe-arrow-l">&lsaquo;</div>
+      <div class="child-img">生成画像<br>(画面幅いっぱい)</div>
+      <div class="swipe-arrow-r">&rsaquo;</div>
+      <div class="child-counter">3 / 10</div>
+      <div class="swipe-hint">&larr; スワイプで切替 &rarr;</div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">これをベースに生成</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

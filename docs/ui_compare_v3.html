@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成結果レビューUI 案 (v3)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 18px; margin: 40px 0 8px; color: #333; }
+  h1:first-child { margin-top: 0; }
+  .note { font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.6; }
+  .pros { font-size: 11px; color: #2a7; margin-top: 4px; }
+  .cons { font-size: 11px; color: #c55; margin-bottom: 12px; }
+
+  .phone { width: 375px; height: 812px; border: 3px solid #333; border-radius: 40px; overflow: hidden; background: #fff; margin-bottom: 30px; display: flex; flex-direction: column; }
+  .status-bar { background: #333; color: #fff; text-align: center; font-size: 12px; padding: 6px; flex-shrink: 0; }
+  .header { background: #1a1a2e; color: #fff; padding: 12px 16px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .header a { color: #aaa; text-decoration: none; font-size: 13px; }
+  .body { padding: 10px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* 共通パーツ */
+  .parent-bar { display: flex; align-items: center; gap: 10px; padding: 8px; background: #f9f9f9; border-radius: 8px; margin-bottom: 8px; flex-shrink: 0; }
+  .parent-thumb { width: 56px; height: 56px; border-radius: 6px; background: #fde; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #c88; font-weight: bold; flex-shrink: 0; }
+  .parent-info { flex: 1; min-width: 0; }
+  .parent-info .label { font-size: 10px; color: #aaa; }
+  .parent-info .prompt { font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .size-picker { display: inline-flex; gap: 2px; margin-left: 4px; }
+  .size-btn { display: inline-block; padding: 1px 5px; font-size: 9px; border: 1px solid #ccc; border-radius: 3px; background: #fff; color: #888; }
+  .size-btn.active { background: #4a6cf7; color: #fff; border-color: #4a6cf7; }
+
+  .child-area { flex: 1; position: relative; border-radius: 8px; overflow: hidden; background: #def; display: flex; align-items: center; justify-content: center; }
+  .child-img { color: #88c; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.6; }
+  .counter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; }
+  .arrow-l { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0.7); text-shadow: 0 0 4px rgba(0,0,0,0.3); cursor: pointer; }
+  .arrow-r { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0.7); text-shadow: 0 0 4px rgba(0,0,0,0.3); cursor: pointer; }
+  .hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 4px 14px; border-radius: 12px; white-space: nowrap; }
+
+  .bottom-actions { display: flex; gap: 8px; padding-top: 8px; flex-shrink: 0; }
+  .action-btn { flex: 1; padding: 10px; border-radius: 8px; text-align: center; font-size: 12px; border: none; cursor: pointer; }
+  .action-fav { background: #fffbeb; border: 1px solid #ffc107; color: #b8860b; }
+  .action-use { background: #4a6cf7; color: #fff; }
+  .action-back { background: #e0e0e0; color: #333; }
+
+  /* 案B: 上下分割 */
+  .split-top { height: 45%; border-radius: 8px; overflow: hidden; background: #fde; display: flex; align-items: center; justify-content: center; color: #c88; font-weight: bold; font-size: 14px; position: relative; margin-bottom: 4px; flex-shrink: 0; }
+  .split-bottom { flex: 1; border-radius: 8px; overflow: hidden; background: #def; display: flex; align-items: center; justify-content: center; color: #88c; font-weight: bold; font-size: 14px; position: relative; }
+  .img-label { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+
+  /* 案C: タップ切替 */
+  .tap-area { flex: 1; position: relative; border-radius: 8px; overflow: hidden; background: #def; display: flex; align-items: center; justify-content: center; }
+  .tap-indicator { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 12px; }
+  .tap-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 4px 14px; border-radius: 12px; }
+
+  /* ドットインジケーター */
+  .dots { display: flex; justify-content: center; gap: 5px; padding: 6px 0; flex-shrink: 0; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #ddd; }
+  .dot.active { background: #4a6cf7; }
+
+  hr { border: none; border-top: 2px dashed #ddd; margin: 50px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<h1>案A: スワイプ式 (親を上部固定)</h1>
+<p class="note">
+  生成完了後に自動遷移。上部に親画像バー、中央に子画像1枚を画面幅フルで表示。<br>
+  左右スワイプで子画像を切替。ドットインジケーターで位置表示。<br>
+  下部にお気に入り/ベースに生成ボタン。
+</p>
+<div class="pros">+ 子画像が大きく見える / 親との比較が常にできる / 片手スワイプ操作</div>
+<div class="cons">- 親画像が小さい / 2枚の子を並べて比較はできない</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="parent-bar">
+      <div class="parent-thumb">BEFORE</div>
+      <div class="parent-info">
+        <div class="label">ベース画像</div>
+        <div class="prompt">"鎧を西洋ファンタジー風に変更 兜あり"</div>
+      </div>
+      <div class="size-picker">
+        <span class="size-btn">1</span>
+        <span class="size-btn active">2</span>
+        <span class="size-btn">3</span>
+      </div>
+    </div>
+
+    <div class="child-area">
+      <div class="arrow-l">&lsaquo;</div>
+      <div class="child-img">子画像<br>(画面幅フル表示)</div>
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="counter">3 / 10</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">ベースに生成</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<h1>案B: 上下分割 (親と子を同時表示)</h1>
+<p class="note">
+  画面を上下に分割。上に親画像、下に子画像。両方とも画面幅フル。<br>
+  子画像は左右スワイプで切替。<br>
+  親画像も大きく表示されるので細部の比較がしやすい。
+</p>
+<div class="pros">+ 親子両方が大きく見える / 細部比較しやすい / 視線の上下移動だけで比較</div>
+<div class="cons">- 各画像の高さが半分になる / 縦長画像だと窮屈</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="split-top">
+      <div class="img-label">BEFORE (親画像)</div>
+      親画像<br>(画面幅フル)
+    </div>
+    <div class="split-bottom">
+      <div class="arrow-l">&lsaquo;</div>
+      <div class="img-label">AFTER</div>
+      子画像<br>(画面幅フル)
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="counter">3 / 10</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">ベースに生成</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<h1>案C: タップ切替 + スワイプ</h1>
+<p class="note">
+  子画像を画面いっぱいに1枚表示。画面タップでbefore/afterがパッと切り替わる。<br>
+  左右スワイプで次/前の子画像に移動。<br>
+  画像が最大サイズで表示される。差分が「動き」として直感的にわかる。
+</p>
+<div class="pros">+ 画像が最大サイズ / 差分がパラパラ漫画的に見える / タップ+スワイプで全操作完結</div>
+<div class="cons">- before/afterを同時には見られない / 慣れが必要</div>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 一覧に戻る</a>
+    <span>生成結果</span>
+    <span></span>
+  </div>
+  <div class="body">
+    <div class="tap-area">
+      <div class="arrow-l">&lsaquo;</div>
+      <div class="child-img">子画像<br>(画面全体に表示)<br><br><span style="font-size:11px;font-weight:normal;color:#88c;">タップ → 親画像に切替<br>もう一度タップ → 戻る</span></div>
+      <div class="arrow-r">&rsaquo;</div>
+      <div class="tap-indicator">AFTER</div>
+      <div class="counter">3 / 10</div>
+      <div class="tap-hint">タップで BEFORE &harr; AFTER</div>
+    </div>
+
+    <div class="dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <div class="action-btn action-fav">&#9733; お気に入り</div>
+      <div class="action-btn action-use">ベースに生成</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<h1>導線 (全案共通)</h1>
+<p class="note">
+  詳細画面で「生成する」→ 進捗バー → 生成完了後にレビュー画面へ自動遷移。<br>
+  「一覧に戻る」で詳細画面に戻り、生成フォームや子画像一覧も使える。
+</p>
+
+<div class="phone" style="height:auto; min-height:0;">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <a href="#">&larr; 戻る</a>
+    <span></span>
+    <span></span>
+  </div>
+  <div class="body" style="gap:8px;">
+    <div class="parent-bar">
+      <div class="parent-thumb">親画像</div>
+      <div class="parent-info">
+        <div class="label">親画像 <span class="size-picker"><span class="size-btn">1</span><span class="size-btn active">2</span><span class="size-btn">3</span><span class="size-btn">4</span><span class="size-btn">5</span><span class="size-btn">原寸</span></span></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px; color:#aaa; text-align:center;">&darr;</div>
+
+    <div style="background:#cce; border-radius:8px; padding:20px; text-align:center;">
+      <div style="font-size:12px; color:#666; margin-bottom:4px;">選択中 <span class="size-picker"><span class="size-btn">1</span><span class="size-btn">2</span><span class="size-btn">3</span><span class="size-btn active">4</span><span class="size-btn">5</span><span class="size-btn">原寸</span></span></div>
+      <div style="font-size:13px; color:#555; font-weight:bold;">選択画像 (大きく表示)</div>
+    </div>
+
+    <div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid #ffc107;border-radius:6px;background:#fffbeb;color:#b8860b;font-size:12px;margin-top:2px;"><span style="color:#ffc107;">&#9733;</span> お気に入り</div>
+    <div style="font-size:11px;color:#555;background:#f9f9f9;padding:6px 8px;border-radius:6px;">"鎧を西洋ファンタジー風に変更"</div>
+    <div style="font-size:10px;color:#aaa;">2026/2/7 3:09:00</div>
+
+    <div style="background:#f0f2ff; border-radius:8px; padding:10px; margin-top:4px;">
+      <div style="font-size:11px; color:#888;">プロンプト</div>
+      <div style="font-size:10px; color:#4a6cf7; margin:4px 0;">履歴チップ | 履歴チップ</div>
+      <div style="background:#fff;border:1px solid #ddd;border-radius:4px;padding:6px;font-size:11px;color:#aaa;height:36px;">生成内容を入力...</div>
+      <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#666;">
+        <span>枚数: 10</span><span>Temp: 1.0</span><span>比率: 自動</span>
+      </div>
+      <div style="background:#4a6cf7;color:#fff;text-align:center;padding:8px;border-radius:6px;font-size:12px;margin-top:6px;">生成する</div>
+      <div style="margin-top:6px;text-align:center;font-size:11px;color:#4a6cf7;font-weight:bold;">↓ 生成完了後、レビュー画面へ自動遷移 ↓</div>
+    </div>
+
+    <div style="font-size:11px; color:#aaa; text-align:center;">&darr;</div>
+
+    <div>
+      <div style="font-size:12px; color:#888; font-weight:bold; margin-bottom:4px;">子画像 (10) <span class="size-picker"><span class="size-btn active">1</span><span class="size-btn">2</span><span class="size-btn">3</span><span class="size-btn">4</span><span class="size-btn">5</span><span class="size-btn">原寸</span></span></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;">
+        <div style="background:#ddd;border-radius:4px;aspect-ratio:1;"></div>
+        <div style="background:#ddd;border-radius:4px;aspect-ratio:1;"></div>
+        <div style="background:#ddd;border-radius:4px;aspect-ratio:1;"></div>
+        <div style="background:#ddd;border-radius:4px;aspect-ratio:1;"></div>
+        <div style="background:#ddd;border-radius:4px;aspect-ratio:1;"></div>
+      </div>
+      <div style="font-size:10px; color:#aaa; margin-top:4px;">※ 一覧は従来通り残る。レビュー画面とは別。</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
