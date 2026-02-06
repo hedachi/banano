@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Draft 4 - 画像生成Webサービス</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 18px; margin: 30px 0 10px; color: #333; }
+  h1:first-child { margin-top: 0; }
+  .note { font-size: 12px; color: #888; margin-bottom: 10px; }
+  .phone { width: 375px; border: 3px solid #333; border-radius: 20px; overflow: hidden; background: #fff; margin-bottom: 40px; }
+  .status-bar { background: #333; color: #fff; text-align: center; font-size: 12px; padding: 4px; }
+  .header { background: #1a1a2e; color: #fff; padding: 14px 16px; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: space-between; }
+  .header-back { background: #1a1a2e; color: #fff; padding: 14px 16px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .header-back a { color: #aaa; text-decoration: none; font-size: 14px; }
+  .star { color: #ffc107; font-size: 20px; cursor: pointer; }
+  .body { padding: 12px; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .btn { padding: 10px 14px; border-radius: 8px; font-size: 13px; border: none; cursor: pointer; flex: 1; text-align: center; }
+  .btn-primary { background: #4a6cf7; color: #fff; }
+  .btn-secondary { background: #e0e0e0; color: #333; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .img-card { background: #ddd; border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; color: #666; font-size: 13px; }
+  .img-card.large { grid-column: 1 / -1; aspect-ratio: 4/3; background: #cce; font-weight: bold; }
+  .img-card.parent-thumb { aspect-ratio: 1; background: #e0e0e0; width: 80px; height: 80px; font-size: 11px; }
+  .badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
+  .fav-badge { position: absolute; top: 6px; left: 6px; font-size: 14px; }
+  .section-label { font-size: 13px; color: #888; margin: 14px 0 8px; font-weight: bold; }
+  .prompt-text { font-size: 13px; color: #555; margin: 8px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; }
+  .date-text { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+  .arrow-down { text-align: center; color: #bbb; font-size: 20px; margin: 4px 0; }
+  .input-label { font-size: 12px; color: #888; margin: 10px 0 4px; }
+  .textarea { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 13px; height: 60px; resize: none; background: #fff; }
+  .number-input { width: 70px; border: 1px solid #ddd; border-radius: 6px; padding: 6px 8px; font-size: 14px; text-align: center; }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider { flex: 1; height: 4px; -webkit-appearance: none; background: #ddd; border-radius: 2px; }
+  .slider-val { font-size: 13px; color: #555; min-width: 30px; text-align: center; }
+  .select-input { border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 13px; background: #fff; }
+  .progress { background: #eee; border-radius: 4px; height: 8px; margin-top: 12px; }
+  .progress-bar { background: #4a6cf7; height: 100%; border-radius: 4px; width: 40%; }
+  .progress-text { font-size: 11px; color: #888; margin-top: 4px; }
+  .click-hint { font-size: 11px; color: #4a6cf7; margin-top: 4px; }
+  .generate-form { background: #f0f2ff; border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .option-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .option-label { font-size: 12px; color: #666; min-width: 80px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: #aaa; }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .tab-bar { display: flex; border-bottom: 2px solid #eee; margin-bottom: 12px; }
+  .tab { flex: 1; text-align: center; padding: 10px; font-size: 13px; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tab.active { color: #4a6cf7; border-bottom-color: #4a6cf7; font-weight: bold; }
+  .desktop { width: 800px; border: 2px solid #ccc; border-radius: 8px; overflow: hidden; background: #fff; margin-bottom: 40px; }
+  .desktop .grid { grid-template-columns: repeat(4, 1fr); }
+</style>
+</head>
+<body>
+
+<!-- =============================== -->
+<h1>1. トップページ - モバイル</h1>
+<p class="note">お気に入りがデフォルト表示。タブで全画像に切替可能。</p>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <span>Banano</span>
+  </div>
+  <div class="body">
+    <div class="btn-row">
+      <div class="btn btn-secondary">アップロード</div>
+      <div class="btn btn-primary">新規生成</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active">お気に入り</div>
+      <div class="tab">すべて</div>
+    </div>
+    <div class="grid">
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_1<span class="badge">12</span></div>
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_2<span class="badge">5</span></div>
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_3<span class="badge">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 空状態 -->
+<p class="note">お気に入りが未登録の場合:</p>
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header">
+    <span>Banano</span>
+  </div>
+  <div class="body">
+    <div class="btn-row">
+      <div class="btn btn-secondary">アップロード</div>
+      <div class="btn btn-primary">新規生成</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active">お気に入り</div>
+      <div class="tab">すべて</div>
+    </div>
+    <div class="empty-state">
+      <div class="icon">&#9734;</div>
+      <div>お気に入りがありません</div>
+      <div style="font-size:12px; margin-top:8px;">画像をアップロードまたは生成して始めましょう</div>
+    </div>
+  </div>
+</div>
+
+<!-- =============================== -->
+<h1>2. 画像詳細 - モバイル</h1>
+<p class="note">上から 親→選択画像→生成フォーム→子画像 の世代順。</p>
+
+<div class="phone">
+  <div class="status-bar">9:41</div>
+  <div class="header-back">
+    <a href="#">&larr; 戻る</a>
+    <span class="star">&#9733;</span>
+  </div>
+  <div class="body">
+
+    <div class="section-label">親画像</div>
+    <div class="img-card parent-thumb">parent</div>
+    <div class="click-hint">タップで遷移</div>
+
+    <div class="arrow-down">&darr;</div>
+
+    <div class="section-label">選択中</div>
+    <div class="grid">
+      <div class="img-card large">選択中の画像</div>
+    </div>
+    <div class="prompt-text">"鎧を西洋ファンタジー風に変更"</div>
+    <div class="date-text">2026-02-06 15:30</div>
+
+    <div class="generate-form">
+      <div class="input-label">プロンプト</div>
+      <textarea class="textarea" placeholder="生成内容を入力..."></textarea>
+
+      <div class="option-row">
+        <span class="option-label">枚数</span>
+        <input type="number" class="number-input" value="10" min="1" max="20">
+      </div>
+
+      <div class="option-row">
+        <span class="option-label">Temperature</span>
+        <div class="slider-row" style="flex:1;">
+          <input type="range" class="slider" min="0" max="2" step="0.1" value="1.0">
+          <span class="slider-val">1.0</span>
+        </div>
+      </div>
+
+      <div class="option-row">
+        <span class="option-label">アスペクト比</span>
+        <select class="select-input" style="flex:1;">
+          <option>自動 (元画像と同じ)</option>
+          <option>1:1</option>
+          <option>3:4</option>
+          <option>4:3</option>
+          <option>9:16</option>
+          <option>16:9</option>
+        </select>
+      </div>
+
+      <div class="btn btn-primary" style="margin-top:12px;">生成する</div>
+
+      <div class="progress"><div class="progress-bar"></div></div>
+      <div class="progress-text">生成中... 4/10</div>
+    </div>
+
+    <div class="arrow-down">&darr;</div>
+
+    <div class="section-label">子画像 (30)</div>
+    <div class="grid-3">
+      <div class="img-card">child_1<span class="badge">2</span></div>
+      <div class="img-card">child_2<span class="badge">0</span></div>
+      <div class="img-card">child_3<span class="badge">1</span></div>
+      <div class="img-card">child_4<span class="badge">0</span></div>
+      <div class="img-card">child_5<span class="badge">0</span></div>
+      <div class="img-card">child_6<span class="badge">0</span></div>
+    </div>
+    <div style="text-align:center; font-size:12px; color:#aaa; margin-top:8px;">... 他24枚</div>
+    <div class="click-hint">子画像をタップで詳細へ遷移</div>
+  </div>
+</div>
+
+<!-- =============================== -->
+<h1>3. トップページ - デスクトップ</h1>
+<p class="note">同構成、4列グリッド。</p>
+
+<div class="desktop">
+  <div class="header">
+    <span>Banano</span>
+    <div style="display:flex; gap:8px;">
+      <div class="btn btn-secondary" style="flex:none; padding:8px 16px;">アップロード</div>
+      <div class="btn btn-primary" style="flex:none; padding:8px 16px;">新規生成</div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="tab-bar">
+      <div class="tab active" style="flex:none; padding:10px 24px;">お気に入り</div>
+      <div class="tab" style="flex:none; padding:10px 24px;">すべて</div>
+    </div>
+    <div class="grid">
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_1<span class="badge">12</span></div>
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_2<span class="badge">5</span></div>
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_3<span class="badge">0</span></div>
+      <div class="img-card"><span class="fav-badge">&#9733;</span>fav_4<span class="badge">8</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
