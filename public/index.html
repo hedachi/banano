@@ -10,7 +10,7 @@
   <div id="app">
     <!-- ヘッダー -->
     <header id="header">
-      <span id="header-back" class="hidden" onclick="showGallery()">&larr; 戻る</span>
+      <span id="header-back" class="hidden" onclick="goBack()">&larr; 戻る</span>
       <span id="header-title">Banano</span>
       <span></span>
     </header>
@@ -97,6 +97,30 @@
           <span class="size-picker" data-target="children"></span>
         </div>
         <div id="children-grid" class="grid-children"></div>
+      </div>
+    </div>
+
+    <!-- レビュー画面 (生成結果比較) -->
+    <div id="review-view" class="hidden">
+      <div id="review-before" class="review-before">
+        <img id="review-before-img">
+        <div class="review-img-label">BEFORE (ベース)</div>
+      </div>
+      <div class="review-info-bar">
+        <span class="review-prompt-label">prompt</span>
+        <span id="review-prompt" class="review-prompt-text"></span>
+      </div>
+      <div id="review-after" class="review-after">
+        <div class="review-arrow review-arrow-l" onclick="reviewPrev()">&lsaquo;</div>
+        <img id="review-after-img">
+        <div class="review-arrow review-arrow-r" onclick="reviewNext()">&rsaquo;</div>
+        <div class="review-img-label">AFTER</div>
+        <div id="review-counter" class="review-counter"></div>
+      </div>
+      <div id="review-dots" class="review-dots"></div>
+      <div class="review-actions">
+        <div id="review-fav-btn" class="review-btn review-btn-fav" onclick="reviewToggleFav()">&#9734; お気に入り</div>
+        <div class="review-btn review-btn-use" onclick="reviewUseAsBase()">ベースに生成</div>
       </div>
     </div>
 

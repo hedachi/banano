@@ -1,6 +1,7 @@
 let currentFilter = 'favorites';
 let currentImageId = null;
 let currentImageData = null;
+let currentView = 'gallery'; // gallery, detail, review, new-gen
 
 // サイズ設定 (localStorage で保持)
 const SIZE_LABELS = ['1', '2', '3', '4', '5', '原寸'];
@@ -90,12 +91,30 @@ function switchTab(el) {
   loadGallery();
 }
 
+function hideAllViews() {
+  ['gallery-view', 'detail-view', 'new-gen-view', 'review-view'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+}
+
+function goBack() {
+  if (currentView === 'review') {
+    // レビューから戻る → 親の詳細画面
+    if (reviewState.parentImage) {
+      showDetail(reviewState.parentImage.id);
+    } else {
+      showGallery();
+    }
+  } else {
+    showGallery();
+  }
+}
+
 function showGallery() {
+  hideAllViews();
   document.getElementById('gallery-view').classList.remove('hidden');
-  document.getElementById('detail-view').classList.add('hidden');
-  document.getElementById('new-gen-view').classList.add('hidden');
   document.getElementById('header-back').classList.add('hidden');
   document.getElementById('header-title').textContent = 'Banano';
+  currentView = 'gallery';
   currentImageId = null;
   currentImageData = null;
   loadGallery();
@@ -127,9 +146,9 @@ async function showDetail(id) {
   const data = await res.json();
   currentImageId = id;
   currentImageData = data;
+  currentView = 'detail';
 
-  document.getElementById('gallery-view').classList.add('hidden');
-  document.getElementById('new-gen-view').classList.add('hidden');
+  hideAllViews();
   document.getElementById('detail-view').classList.remove('hidden');
   document.getElementById('header-back').classList.remove('hidden');
   document.getElementById('header-title').textContent = '';
@@ -229,6 +248,9 @@ async function generate() {
   barEl.style.width = '0%';
   textEl.textContent = '生成中... 0/' + count;
 
+  const parentImage = { id: currentImageId, filename: currentImageData.filename };
+  const generatedChildren = [];
+
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -249,12 +271,19 @@ async function generate() {
       if (!line.startsWith('data: ')) continue;
       const data = JSON.parse(line.slice(6));
       if (data.done) {
-        await showDetail(currentImageId);
         document.getElementById('gen-btn').disabled = false;
+        if (generatedChildren.length > 0) {
+          showReview(parentImage, generatedChildren, prompt);
+        } else {
+          await showDetail(currentImageId);
+        }
         return;
       }
       barEl.style.width = (data.completed / data.total * 100) + '%';
       textEl.textContent = `生成中... ${data.completed}/${data.total}`;
+      if (data.result) {
+        generatedChildren.push({ ...data.result, is_favorite: 0 });
+      }
     }
   }
   document.getElementById('gen-btn').disabled = false;
@@ -263,11 +292,11 @@ async function generate() {
 // --- 新規生成 (ベースなし) ---
 
 function showNewGenerate() {
-  document.getElementById('gallery-view').classList.add('hidden');
-  document.getElementById('detail-view').classList.add('hidden');
+  hideAllViews();
   document.getElementById('new-gen-view').classList.remove('hidden');
   document.getElementById('header-back').classList.remove('hidden');
   document.getElementById('header-title').textContent = '新規生成';
+  currentView = 'new-gen';
   document.getElementById('new-gen-prompt').value = '';
   document.getElementById('new-gen-results').innerHTML = '';
   document.getElementById('new-gen-progress').classList.add('hidden');
@@ -330,6 +359,82 @@ async function generateNew() {
   }
   document.getElementById('new-gen-btn').disabled = false;
 }
+
+// --- レビュー画面 ---
+
+let reviewState = { parentImage: null, childImages: [], currentIndex: 0, prompt: '' };
+
+function showReview(parentImage, childImages, prompt) {
+  reviewState = { parentImage, childImages, currentIndex: 0, prompt };
+  currentView = 'review';
+
+  hideAllViews();
+  document.getElementById('review-view').classList.remove('hidden');
+  document.getElementById('header-back').classList.remove('hidden');
+  document.getElementById('header-title').textContent = `生成結果 (${childImages.length}枚)`;
+
+  document.getElementById('review-before-img').src = `/uploads/${parentImage.filename}`;
+  document.getElementById('review-prompt').textContent = `"${prompt}"`;
+
+  updateReviewChild();
+}
+
+function updateReviewChild() {
+  const { childImages, currentIndex } = reviewState;
+  const child = childImages[currentIndex];
+
+  document.getElementById('review-after-img').src = `/uploads/${child.filename}`;
+  document.getElementById('review-counter').textContent = `${currentIndex + 1} / ${childImages.length}`;
+
+  document.getElementById('review-dots').innerHTML = childImages.map((_, i) =>
+    `<div class="review-dot ${i === currentIndex ? 'active' : ''}"></div>`
+  ).join('');
+
+  const favBtn = document.getElementById('review-fav-btn');
+  favBtn.innerHTML = child.is_favorite ? '&#9733; お気に入り' : '&#9734; お気に入り';
+  favBtn.classList.toggle('active', !!child.is_favorite);
+}
+
+function reviewPrev() {
+  if (reviewState.currentIndex > 0) {
+    reviewState.currentIndex--;
+    updateReviewChild();
+  }
+}
+
+function reviewNext() {
+  if (reviewState.currentIndex < reviewState.childImages.length - 1) {
+    reviewState.currentIndex++;
+    updateReviewChild();
+  }
+}
+
+async function reviewToggleFav() {
+  const child = reviewState.childImages[reviewState.currentIndex];
+  const res = await fetch(`/api/images/${child.id}/favorite`, { method: 'POST' });
+  const { is_favorite } = await res.json();
+  child.is_favorite = is_favorite;
+  updateReviewChild();
+}
+
+function reviewUseAsBase() {
+  const child = reviewState.childImages[reviewState.currentIndex];
+  showDetail(child.id);
+}
+
+// タッチスワイプ
+document.addEventListener('DOMContentLoaded', () => {
+  const afterEl = document.getElementById('review-after');
+  let touchStartX = 0;
+  afterEl.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  afterEl.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) reviewNext();
+      else reviewPrev();
+    }
+  });
+});
 
 // 初期読み込み
 loadGallery();
