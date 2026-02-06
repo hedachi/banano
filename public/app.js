@@ -1,43 +1,8 @@
 let currentFilter = 'favorites';
 let currentImageId = null;
 let currentImageData = null;
-let currentView = 'gallery'; // gallery, detail, review, new-gen
-
-// サイズ設定 (localStorage で保持)
-const SIZE_LABELS = ['1', '2', '3', '4', '5', '原寸'];
-const SIZE_CLASSES = ['size-1', 'size-2', 'size-3', 'size-4', 'size-5', 'size-full'];
-const sizeState = {
-  parent: parseInt(localStorage.getItem('size-parent') || '1'),
-  selected: parseInt(localStorage.getItem('size-selected') || '4'),
-  children: parseInt(localStorage.getItem('size-children') || '2')
-};
-
-function initSizePickers() {
-  document.querySelectorAll('.size-picker').forEach(picker => {
-    const target = picker.dataset.target;
-    picker.innerHTML = SIZE_LABELS.map((label, i) =>
-      `<span class="size-btn ${i === sizeState[target] ? 'active' : ''}" onclick="setSize('${target}', ${i}, this)">${label}</span>`
-    ).join('');
-  });
-  applySize('parent');
-  applySize('selected');
-  applySize('children');
-}
-
-function setSize(target, index, btnEl) {
-  sizeState[target] = index;
-  localStorage.setItem('size-' + target, index);
-  btnEl.parentElement.querySelectorAll('.size-btn').forEach((b, i) => b.classList.toggle('active', i === index));
-  applySize(target);
-}
-
-function applySize(target) {
-  const cls = SIZE_CLASSES[sizeState[target]];
-  const ids = { parent: 'parent-thumb', selected: 'selected-image', children: 'children-grid' };
-  const el = document.getElementById(ids[target]);
-  SIZE_CLASSES.forEach(c => el.classList.remove(c));
-  el.classList.add(cls);
-}
+let currentView = 'gallery'; // gallery, detail
+let detailMode = 'normal'; // normal, review
 
 // --- プロンプト履歴 (localStorage, 直近5件) ---
 
@@ -92,13 +57,12 @@ function switchTab(el) {
 }
 
 function hideAllViews() {
-  ['gallery-view', 'detail-view', 'new-gen-view', 'review-view'].forEach(id =>
+  ['gallery-view', 'detail-view'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
 }
 
 function goBack() {
-  if (currentView === 'review') {
-    // レビューから戻る → 親の詳細画面
+  if (detailMode === 'review') {
     if (reviewState.parentImage) {
       showDetail(reviewState.parentImage.id);
     } else {
@@ -117,6 +81,7 @@ function showGallery() {
   currentView = 'gallery';
   currentImageId = null;
   currentImageData = null;
+  detailMode = 'normal';
   loadGallery();
 }
 
@@ -142,66 +107,81 @@ function favBtnSmallHtml(id, isFav) {
 }
 
 async function showDetail(id) {
-  const res = await fetch(`/api/images/${id}`);
-  const data = await res.json();
-  currentImageId = id;
-  currentImageData = data;
   currentView = 'detail';
+  detailMode = 'normal';
 
   hideAllViews();
   document.getElementById('detail-view').classList.remove('hidden');
+  document.getElementById('detail-normal').classList.remove('hidden');
+  document.getElementById('detail-review').classList.add('hidden');
   document.getElementById('header-back').classList.remove('hidden');
-  document.getElementById('header-title').textContent = '';
 
-  // 親画像
-  const parentSection = document.getElementById('parent-section');
-  if (data.parent) {
-    parentSection.classList.remove('hidden');
-    document.getElementById('parent-thumb').innerHTML =
-      `<img src="/uploads/${data.parent.filename}">`;
+  if (id === null) {
+    // ベースなし生成モード
+    currentImageId = null;
+    currentImageData = null;
+    document.getElementById('header-title').textContent = '新規生成';
+    document.getElementById('parent-section').classList.add('hidden');
+    document.getElementById('selected-section').classList.add('hidden');
+    document.getElementById('children-section').classList.add('hidden');
+    document.getElementById('gen-count').value = '1';
   } else {
-    parentSection.classList.add('hidden');
-  }
+    const res = await fetch(`/api/images/${id}`);
+    const data = await res.json();
+    currentImageId = id;
+    currentImageData = data;
+    document.getElementById('header-title').textContent = '';
+    document.getElementById('selected-section').classList.remove('hidden');
 
-  // 選択画像
-  document.getElementById('selected-image').innerHTML =
-    `<img src="/uploads/${data.filename}">`;
+    // 親画像
+    const parentSection = document.getElementById('parent-section');
+    if (data.parent) {
+      parentSection.classList.remove('hidden');
+      document.getElementById('parent-thumb').innerHTML =
+        `<img src="/uploads/${data.parent.filename}">`;
+    } else {
+      parentSection.classList.add('hidden');
+    }
 
-  // お気に入りボタン (画像の下)
-  document.getElementById('selected-fav-wrap').innerHTML = favBtnHtml(data.id, data.is_favorite);
+    // 選択画像
+    document.getElementById('selected-image').innerHTML =
+      `<img src="/uploads/${data.filename}">`;
 
-  const promptEl = document.getElementById('selected-prompt');
-  if (data.prompt) {
-    promptEl.textContent = data.prompt;
-    promptEl.classList.remove('hidden');
-  } else {
-    promptEl.classList.add('hidden');
-  }
+    // お気に入りボタン
+    document.getElementById('selected-fav-wrap').innerHTML = favBtnHtml(data.id, data.is_favorite);
 
-  const d = new Date(data.created_at);
-  document.getElementById('selected-date').textContent =
-    d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+    const promptEl = document.getElementById('selected-prompt');
+    if (data.prompt) {
+      promptEl.textContent = data.prompt;
+      promptEl.classList.remove('hidden');
+    } else {
+      promptEl.classList.add('hidden');
+    }
 
-  // 子画像
-  const childSection = document.getElementById('children-section');
-  if (data.children.length > 0) {
-    childSection.classList.remove('hidden');
-    document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="size-picker" data-target="children"></span> <span class="review-link" onclick="openReviewFromDetail()">レビュー</span>`;
-    document.getElementById('children-grid').innerHTML = data.children.map(c => `
-      <div class="img-card-wrap">
-        <div class="img-card" onclick="showDetail('${c.id}')">
-          <img src="/uploads/${c.filename}" loading="lazy">
-          ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
+    const d = new Date(data.created_at);
+    document.getElementById('selected-date').textContent =
+      d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+    // 子画像
+    const childSection = document.getElementById('children-section');
+    if (data.children.length > 0) {
+      childSection.classList.remove('hidden');
+      document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="review-link" onclick="openReviewFromDetail()">レビュー</span>`;
+      document.getElementById('children-grid').innerHTML = data.children.map(c => `
+        <div class="img-card-wrap">
+          <div class="img-card" onclick="showDetail('${c.id}')">
+            <img src="/uploads/${c.filename}" loading="lazy">
+            ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
+          </div>
+          ${favBtnSmallHtml(c.id, c.is_favorite)}
         </div>
-        ${favBtnSmallHtml(c.id, c.is_favorite)}
-      </div>
-    `).join('');
-  } else {
-    childSection.classList.add('hidden');
-  }
+      `).join('');
+    } else {
+      childSection.classList.add('hidden');
+    }
 
-  // サイズピッカー初期化・適用
-  initSizePickers();
+    document.getElementById('gen-count').value = '10';
+  }
 
   // プロンプト履歴
   renderPromptHistory('gen-prompt-history', 'gen-prompt');
@@ -228,7 +208,7 @@ async function toggleFavorite(id, btnEl) {
   btnEl.classList.toggle('active', !!is_favorite);
 }
 
-// --- 生成 (ベースあり) ---
+// --- 生成 ---
 
 async function generate() {
   const prompt = document.getElementById('gen-prompt').value.trim();
@@ -248,13 +228,16 @@ async function generate() {
   barEl.style.width = '0%';
   textEl.textContent = '生成中... 0/' + count;
 
-  const parentImage = { id: currentImageId, filename: currentImageData.filename };
+  const parentImage = currentImageId ? { id: currentImageId, filename: currentImageData.filename } : null;
   const generatedChildren = [];
+
+  const body = { prompt, count, temperature, aspect_ratio };
+  if (currentImageId) body.parent_id = currentImageId;
 
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ parent_id: currentImageId, prompt, count, temperature, aspect_ratio })
+    body: JSON.stringify(body)
   });
 
   const reader = res.body.getReader();
@@ -273,9 +256,18 @@ async function generate() {
       if (data.done) {
         document.getElementById('gen-btn').disabled = false;
         if (generatedChildren.length > 0) {
-          showReview(parentImage, generatedChildren, prompt);
+          if (parentImage) {
+            showDetailReview(parentImage, generatedChildren, prompt);
+          } else {
+            // ベースなし生成 → 最初の結果画像の詳細に遷移
+            showDetail(generatedChildren[0].id);
+          }
         } else {
-          await showDetail(currentImageId);
+          if (currentImageId) {
+            await showDetail(currentImageId);
+          } else {
+            showGallery();
+          }
         }
         return;
       }
@@ -289,88 +281,16 @@ async function generate() {
   document.getElementById('gen-btn').disabled = false;
 }
 
-// --- 新規生成 (ベースなし) ---
-
-function showNewGenerate() {
-  hideAllViews();
-  document.getElementById('new-gen-view').classList.remove('hidden');
-  document.getElementById('header-back').classList.remove('hidden');
-  document.getElementById('header-title').textContent = '新規生成';
-  currentView = 'new-gen';
-  document.getElementById('new-gen-prompt').value = '';
-  document.getElementById('new-gen-results').innerHTML = '';
-  document.getElementById('new-gen-progress').classList.add('hidden');
-  document.getElementById('new-gen-btn').disabled = false;
-  renderPromptHistory('new-gen-prompt-history', 'new-gen-prompt');
-}
-
-async function generateNew() {
-  const prompt = document.getElementById('new-gen-prompt').value.trim();
-  if (!prompt) return;
-
-  savePromptToHistory(prompt);
-
-  const count = parseInt(document.getElementById('new-gen-count').value);
-  const temperature = parseFloat(document.getElementById('new-gen-temp').value);
-  const aspect_ratio = document.getElementById('new-gen-aspect').value;
-
-  document.getElementById('new-gen-btn').disabled = true;
-  const progressEl = document.getElementById('new-gen-progress');
-  const barEl = document.getElementById('new-gen-progress-bar');
-  const textEl = document.getElementById('new-gen-progress-text');
-  progressEl.classList.remove('hidden');
-  barEl.style.width = '0%';
-  textEl.textContent = '生成中... 0/' + count;
-
-  const resultsGrid = document.getElementById('new-gen-results');
-
-  const res = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, count, temperature, aspect_ratio })
-  });
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = JSON.parse(line.slice(6));
-      if (data.done) {
-        document.getElementById('new-gen-btn').disabled = false;
-        return;
-      }
-      barEl.style.width = (data.completed / data.total * 100) + '%';
-      textEl.textContent = `生成中... ${data.completed}/${data.total}`;
-      if (data.result) {
-        resultsGrid.innerHTML += `
-          <div class="img-card" onclick="showDetail('${data.result.id}')">
-            <img src="/uploads/${data.result.filename}" loading="lazy">
-          </div>`;
-      }
-    }
-  }
-  document.getElementById('new-gen-btn').disabled = false;
-}
-
-// --- レビュー画面 ---
+// --- レビューモード (detail内) ---
 
 let reviewState = { parentImage: null, childImages: [], currentIndex: 0, prompt: '' };
 
-function showReview(parentImage, childImages, prompt) {
+function showDetailReview(parentImage, childImages, prompt) {
   reviewState = { parentImage, childImages, currentIndex: 0, prompt };
-  currentView = 'review';
+  detailMode = 'review';
 
-  hideAllViews();
-  document.getElementById('review-view').classList.remove('hidden');
-  document.getElementById('header-back').classList.remove('hidden');
+  document.getElementById('detail-normal').classList.add('hidden');
+  document.getElementById('detail-review').classList.remove('hidden');
   document.getElementById('header-title').textContent = `生成結果 (${childImages.length}枚)`;
 
   document.getElementById('review-before-img').src = `/uploads/${parentImage.filename}`;
@@ -427,7 +347,7 @@ function openReviewFromDetail() {
   const parent = { id: currentImageId, filename: currentImageData.filename };
   const children = currentImageData.children.map(c => ({ id: c.id, filename: c.filename, is_favorite: c.is_favorite }));
   const prompt = currentImageData.children[0].prompt || '';
-  showReview(parent, children, prompt);
+  showDetailReview(parent, children, prompt);
 }
 
 // タッチスワイプ
