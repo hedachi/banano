@@ -1,0 +1,250 @@
+let currentFilter = 'favorites';
+let currentImageId = null;
+let currentImageData = null;
+
+// --- ギャラリー ---
+
+async function loadGallery() {
+  const res = await fetch(`/api/images?filter=${currentFilter}`);
+  const images = await res.json();
+  const grid = document.getElementById('gallery-grid');
+  const empty = document.getElementById('empty-state');
+
+  if (images.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = images.map(img => `
+    <div class="img-card" onclick="showDetail('${img.id}')">
+      <img src="/uploads/${img.filename}" loading="lazy">
+      ${img.is_favorite ? '<span class="fav-badge">&#9733;</span>' : ''}
+      ${img.descendant_count > 0 ? `<span class="badge">${img.descendant_count}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function switchTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = el.dataset.filter;
+  loadGallery();
+}
+
+function showGallery() {
+  document.getElementById('gallery-view').classList.remove('hidden');
+  document.getElementById('detail-view').classList.add('hidden');
+  document.getElementById('new-gen-view').classList.add('hidden');
+  document.getElementById('header-back').classList.add('hidden');
+  document.getElementById('header-title').textContent = 'Banano';
+  currentImageId = null;
+  currentImageData = null;
+  loadGallery();
+}
+
+// --- アップロード ---
+
+async function uploadImage(file) {
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: fd });
+  const img = await res.json();
+  showDetail(img.id);
+}
+
+// --- 詳細画面 ---
+
+async function showDetail(id) {
+  const res = await fetch(`/api/images/${id}`);
+  const data = await res.json();
+  currentImageId = id;
+  currentImageData = data;
+
+  document.getElementById('gallery-view').classList.add('hidden');
+  document.getElementById('new-gen-view').classList.add('hidden');
+  document.getElementById('detail-view').classList.remove('hidden');
+  document.getElementById('header-back').classList.remove('hidden');
+  document.getElementById('header-title').textContent = '';
+
+  // 親画像
+  const parentSection = document.getElementById('parent-section');
+  if (data.parent) {
+    parentSection.classList.remove('hidden');
+    document.getElementById('parent-thumb').innerHTML =
+      `<img src="/uploads/${data.parent.filename}">`;
+  } else {
+    parentSection.classList.add('hidden');
+  }
+
+  // 選択画像
+  document.getElementById('selected-image').innerHTML =
+    `<span class="fav-btn ${data.is_favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${data.id}', this)">&#973${data.is_favorite ? '3' : '4'};</span>` +
+    `<img src="/uploads/${data.filename}">`;
+
+  const promptEl = document.getElementById('selected-prompt');
+  if (data.prompt) {
+    promptEl.textContent = data.prompt;
+    promptEl.classList.remove('hidden');
+  } else {
+    promptEl.classList.add('hidden');
+  }
+
+  const d = new Date(data.created_at);
+  document.getElementById('selected-date').textContent =
+    d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+  // 子画像
+  const childSection = document.getElementById('children-section');
+  if (data.children.length > 0) {
+    childSection.classList.remove('hidden');
+    document.getElementById('children-label').textContent = `子画像 (${data.children.length})`;
+    document.getElementById('children-grid').innerHTML = data.children.map(c => `
+      <div class="img-card" onclick="showDetail('${c.id}')">
+        <img src="/uploads/${c.filename}" loading="lazy">
+        <span class="fav-btn ${c.is_favorite ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${c.id}', this)">&#973${c.is_favorite ? '3' : '4'};</span>
+        ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
+      </div>
+    `).join('');
+  } else {
+    childSection.classList.add('hidden');
+  }
+
+  // プロンプト欄をリセット
+  document.getElementById('gen-prompt').value = '';
+  document.getElementById('gen-progress').classList.add('hidden');
+  document.getElementById('gen-btn').disabled = false;
+}
+
+function navigateToParent() {
+  if (currentImageData?.parent) showDetail(currentImageData.parent.id);
+}
+
+async function toggleFavorite(id, btnEl) {
+  const res = await fetch(`/api/images/${id}/favorite`, { method: 'POST' });
+  const { is_favorite } = await res.json();
+  btnEl.innerHTML = is_favorite ? '&#9733;' : '&#9734;';
+  btnEl.classList.toggle('active', !!is_favorite);
+}
+
+// --- 生成 (ベースあり) ---
+
+async function generate() {
+  const prompt = document.getElementById('gen-prompt').value.trim();
+  if (!prompt) return;
+
+  const count = parseInt(document.getElementById('gen-count').value);
+  const temperature = parseFloat(document.getElementById('gen-temp').value);
+  const aspect_ratio = document.getElementById('gen-aspect').value;
+
+  document.getElementById('gen-btn').disabled = true;
+  const progressEl = document.getElementById('gen-progress');
+  const barEl = document.getElementById('gen-progress-bar');
+  const textEl = document.getElementById('gen-progress-text');
+  progressEl.classList.remove('hidden');
+  barEl.style.width = '0%';
+  textEl.textContent = '生成中... 0/' + count;
+
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parent_id: currentImageId, prompt, count, temperature, aspect_ratio })
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = JSON.parse(line.slice(6));
+      if (data.done) {
+        // 完了 - 詳細をリロード
+        await showDetail(currentImageId);
+        document.getElementById('gen-btn').disabled = false;
+        return;
+      }
+      barEl.style.width = (data.completed / data.total * 100) + '%';
+      textEl.textContent = `生成中... ${data.completed}/${data.total}`;
+    }
+  }
+  document.getElementById('gen-btn').disabled = false;
+}
+
+// --- 新規生成 (ベースなし) ---
+
+function showNewGenerate() {
+  document.getElementById('gallery-view').classList.add('hidden');
+  document.getElementById('detail-view').classList.add('hidden');
+  document.getElementById('new-gen-view').classList.remove('hidden');
+  document.getElementById('header-back').classList.remove('hidden');
+  document.getElementById('header-title').textContent = '新規生成';
+  document.getElementById('new-gen-prompt').value = '';
+  document.getElementById('new-gen-results').innerHTML = '';
+  document.getElementById('new-gen-progress').classList.add('hidden');
+  document.getElementById('new-gen-btn').disabled = false;
+}
+
+async function generateNew() {
+  const prompt = document.getElementById('new-gen-prompt').value.trim();
+  if (!prompt) return;
+
+  const count = parseInt(document.getElementById('new-gen-count').value);
+  const temperature = parseFloat(document.getElementById('new-gen-temp').value);
+  const aspect_ratio = document.getElementById('new-gen-aspect').value;
+
+  document.getElementById('new-gen-btn').disabled = true;
+  const progressEl = document.getElementById('new-gen-progress');
+  const barEl = document.getElementById('new-gen-progress-bar');
+  const textEl = document.getElementById('new-gen-progress-text');
+  progressEl.classList.remove('hidden');
+  barEl.style.width = '0%';
+  textEl.textContent = '生成中... 0/' + count;
+
+  const resultsGrid = document.getElementById('new-gen-results');
+
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, count, temperature, aspect_ratio })
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = JSON.parse(line.slice(6));
+      if (data.done) {
+        document.getElementById('new-gen-btn').disabled = false;
+        return;
+      }
+      barEl.style.width = (data.completed / data.total * 100) + '%';
+      textEl.textContent = `生成中... ${data.completed}/${data.total}`;
+      if (data.result) {
+        resultsGrid.innerHTML += `
+          <div class="img-card" onclick="showDetail('${data.result.id}')">
+            <img src="/uploads/${data.result.filename}" loading="lazy">
+          </div>`;
+      }
+    }
+  }
+  document.getElementById('new-gen-btn').disabled = false;
+}
+
+// 初期読み込み
+loadGallery();

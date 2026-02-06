@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Banano</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ヘッダー -->
+    <header id="header">
+      <span id="header-back" class="hidden" onclick="showGallery()">&larr; 戻る</span>
+      <span id="header-title">Banano</span>
+      <span></span>
+    </header>
+
+    <!-- ギャラリー画面 -->
+    <div id="gallery-view">
+      <div class="btn-row">
+        <label class="btn btn-secondary">
+          アップロード
+          <input type="file" accept="image/*" hidden onchange="uploadImage(this.files[0])">
+        </label>
+        <button class="btn btn-primary" onclick="showNewGenerate()">新規生成</button>
+      </div>
+      <div class="tab-bar">
+        <div class="tab active" data-filter="favorites" onclick="switchTab(this)">お気に入り</div>
+        <div class="tab" data-filter="all" onclick="switchTab(this)">すべて</div>
+      </div>
+      <div id="gallery-grid" class="grid"></div>
+      <div id="empty-state" class="empty-state hidden">
+        <div class="icon">&#9734;</div>
+        <div>お気に入りがありません</div>
+        <div class="sub">画像をアップロードまたは生成して始めましょう</div>
+      </div>
+    </div>
+
+    <!-- 詳細画面 -->
+    <div id="detail-view" class="hidden">
+      <!-- 親画像 -->
+      <div id="parent-section" class="hidden">
+        <div class="section-label">親画像</div>
+        <div id="parent-thumb" class="img-thumb" onclick="navigateToParent()"></div>
+        <div class="arrow-down">&darr;</div>
+      </div>
+
+      <!-- 選択画像 -->
+      <div class="section-label">選択中</div>
+      <div id="selected-image" class="selected-image">
+        <span id="selected-fav" class="fav-btn" onclick="toggleFavorite(currentImageId, this)">&#9734;</span>
+      </div>
+      <div id="selected-prompt" class="prompt-text hidden"></div>
+      <div id="selected-date" class="date-text"></div>
+
+      <!-- 生成フォーム -->
+      <div class="generate-form">
+        <label class="input-label">プロンプト</label>
+        <textarea id="gen-prompt" placeholder="生成内容を入力..."></textarea>
+
+        <div class="option-row">
+          <span class="option-label">枚数</span>
+          <input type="number" id="gen-count" value="10" min="1" max="20">
+        </div>
+        <div class="option-row">
+          <span class="option-label">Temperature</span>
+          <input type="range" id="gen-temp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('gen-temp-val').textContent=this.value">
+          <span id="gen-temp-val" class="slider-val">1.0</span>
+        </div>
+        <div class="option-row">
+          <span class="option-label">アスペクト比</span>
+          <select id="gen-aspect">
+            <option value="auto">自動</option>
+            <option value="1:1">1:1</option>
+            <option value="3:4">3:4</option>
+            <option value="4:3">4:3</option>
+            <option value="9:16">9:16</option>
+            <option value="16:9">16:9</option>
+          </select>
+        </div>
+
+        <button id="gen-btn" class="btn btn-primary" onclick="generate()">生成する</button>
+        <div id="gen-progress" class="hidden">
+          <div class="progress"><div id="gen-progress-bar" class="progress-bar"></div></div>
+          <div id="gen-progress-text" class="progress-text"></div>
+        </div>
+      </div>
+
+      <!-- 子画像 -->
+      <div id="children-section" class="hidden">
+        <div class="arrow-down">&darr;</div>
+        <div id="children-label" class="section-label"></div>
+        <div id="children-grid" class="grid-children"></div>
+      </div>
+    </div>
+
+    <!-- 新規生成画面 (ベースなし) -->
+    <div id="new-gen-view" class="hidden">
+      <div class="section-label">ベース画像なしで生成</div>
+      <div class="generate-form">
+        <label class="input-label">プロンプト</label>
+        <textarea id="new-gen-prompt" placeholder="生成内容を入力..."></textarea>
+
+        <div class="option-row">
+          <span class="option-label">枚数</span>
+          <input type="number" id="new-gen-count" value="1" min="1" max="20">
+        </div>
+        <div class="option-row">
+          <span class="option-label">Temperature</span>
+          <input type="range" id="new-gen-temp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('new-gen-temp-val').textContent=this.value">
+          <span id="new-gen-temp-val" class="slider-val">1.0</span>
+        </div>
+        <div class="option-row">
+          <span class="option-label">アスペクト比</span>
+          <select id="new-gen-aspect">
+            <option value="auto">自動</option>
+            <option value="1:1">1:1</option>
+            <option value="3:4">3:4</option>
+            <option value="4:3">4:3</option>
+            <option value="9:16">9:16</option>
+            <option value="16:9">16:9</option>
+          </select>
+        </div>
+
+        <button id="new-gen-btn" class="btn btn-primary" onclick="generateNew()">生成する</button>
+        <div id="new-gen-progress" class="hidden">
+          <div class="progress"><div id="new-gen-progress-bar" class="progress-bar"></div></div>
+          <div id="new-gen-progress-text" class="progress-text"></div>
+        </div>
+      </div>
+      <div id="new-gen-results" class="grid-children" style="margin-top:12px;"></div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
