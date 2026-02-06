@@ -4,6 +4,7 @@ let currentImageData = null;
 let currentView = 'gallery'; // gallery, detail
 let reviewChildren = [];
 let reviewIndex = 0;
+let genFormOpen = true;
 
 // --- プロンプト履歴 (localStorage, 直近5件) ---
 
@@ -69,8 +70,6 @@ function goBack() {
 function showGallery() {
   hideAllViews();
   document.getElementById('gallery-view').classList.remove('hidden');
-  document.getElementById('header-back').classList.add('hidden');
-  document.getElementById('header-title').textContent = 'Banano';
   currentView = 'gallery';
   currentImageId = null;
   currentImageData = null;
@@ -90,8 +89,15 @@ async function uploadImage(file) {
 
 // --- 詳細画面 ---
 
-function favBtnHtml(id, isFav) {
-  return `<span class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${id}', this)"><span class="star">${isFav ? '&#9733;' : '&#9734;'}</span> ${isFav ? 'お気に入り' : 'お気に入りに追加'}</span>`;
+function renderOverlayFav(id, isFav) {
+  document.getElementById('overlay-fav').innerHTML =
+    `<span class="${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleMainFav('${id}')">${isFav ? '&#9733;' : '&#9734;'}</span>`;
+}
+
+async function toggleMainFav(id) {
+  const res = await fetch(`/api/images/${id}/favorite`, { method: 'POST' });
+  const { is_favorite } = await res.json();
+  renderOverlayFav(id, is_favorite);
 }
 
 async function showDetail(id) {
@@ -99,22 +105,24 @@ async function showDetail(id) {
 
   hideAllViews();
   document.getElementById('detail-view').classList.remove('hidden');
-  document.getElementById('header-back').classList.remove('hidden');
 
   if (id === null) {
     currentImageId = null;
     currentImageData = null;
-    document.getElementById('header-title').textContent = '新規生成';
+    document.getElementById('detail-back-top').classList.remove('hidden');
     document.getElementById('parent-section').classList.add('hidden');
     document.getElementById('selected-section').classList.add('hidden');
     document.getElementById('children-section').classList.add('hidden');
+    document.getElementById('gen-form-toggle').classList.add('hidden');
+    document.getElementById('gen-form-body').classList.remove('hidden');
+    genFormOpen = true;
     document.getElementById('gen-count').value = '1';
   } else {
     const res = await fetch(`/api/images/${id}`);
     const data = await res.json();
     currentImageId = id;
     currentImageData = data;
-    document.getElementById('header-title').textContent = '';
+    document.getElementById('detail-back-top').classList.add('hidden');
     document.getElementById('selected-section').classList.remove('hidden');
 
     // 親画像
@@ -128,29 +136,25 @@ async function showDetail(id) {
 
     // 選択画像
     document.getElementById('selected-image').innerHTML = `<img src="/uploads/${data.filename}">`;
-    document.getElementById('selected-fav-wrap').innerHTML = favBtnHtml(data.id, data.is_favorite);
-
-    const promptEl = document.getElementById('selected-prompt');
-    if (data.prompt) {
-      promptEl.textContent = data.prompt;
-      promptEl.classList.remove('hidden');
-    } else {
-      promptEl.classList.add('hidden');
-    }
-
-    const d = new Date(data.created_at);
-    document.getElementById('selected-date').textContent = d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+    renderOverlayFav(data.id, data.is_favorite);
 
     // 子画像 (レビューUI)
     const childSection = document.getElementById('children-section');
     if (data.children.length > 0) {
       childSection.classList.remove('hidden');
-      document.getElementById('children-label').textContent = `子画像 (${data.children.length})`;
       reviewChildren = data.children.map(c => ({ id: c.id, filename: c.filename, is_favorite: c.is_favorite }));
       reviewIndex = 0;
       updateReviewChild();
+      // フォームを折りたたみ
+      document.getElementById('gen-form-toggle').classList.remove('hidden');
+      document.getElementById('gen-form-body').classList.add('hidden');
+      genFormOpen = false;
+      document.getElementById('gen-form-toggle').textContent = '＋ 追加生成';
     } else {
       childSection.classList.add('hidden');
+      document.getElementById('gen-form-toggle').classList.add('hidden');
+      document.getElementById('gen-form-body').classList.remove('hidden');
+      genFormOpen = true;
     }
 
     document.getElementById('gen-count').value = '10';
@@ -166,11 +170,10 @@ function navigateToParent() {
   if (currentImageData?.parent) showDetail(currentImageData.parent.id);
 }
 
-async function toggleFavorite(id, btnEl) {
-  const res = await fetch(`/api/images/${id}/favorite`, { method: 'POST' });
-  const { is_favorite } = await res.json();
-  btnEl.innerHTML = `<span class="star">${is_favorite ? '&#9733;' : '&#9734;'}</span> ${is_favorite ? 'お気に入り' : 'お気に入りに追加'}`;
-  btnEl.classList.toggle('active', !!is_favorite);
+function toggleGenForm() {
+  genFormOpen = !genFormOpen;
+  document.getElementById('gen-form-body').classList.toggle('hidden', !genFormOpen);
+  document.getElementById('gen-form-toggle').textContent = genFormOpen ? '− 閉じる' : '＋ 追加生成';
 }
 
 // --- 子画像レビュー ---

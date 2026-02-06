@@ -8,13 +8,6 @@
 </head>
 <body>
   <div id="app">
-    <!-- ヘッダー -->
-    <header id="header">
-      <span id="header-back" class="hidden" onclick="goBack()">&larr; 戻る</span>
-      <span id="header-title">Banano</span>
-      <span></span>
-    </header>
-
     <!-- ギャラリー画面 -->
     <div id="gallery-view">
       <div class="btn-row">
@@ -38,28 +31,29 @@
 
     <!-- 詳細画面 -->
     <div id="detail-view" class="hidden">
+      <!-- 戻るボタン (ベースなし生成時) -->
+      <div id="detail-back-top" class="detail-back-top hidden" onclick="goBack()">&larr; 戻る</div>
+
       <!-- 親画像 -->
       <div id="parent-section" class="hidden">
-        <div class="section-label">親画像</div>
         <div id="parent-thumb" class="img-thumb" onclick="navigateToParent()"></div>
-        <div class="arrow-down">&darr;</div>
       </div>
 
       <!-- 選択画像 -->
       <div id="selected-section">
-        <div class="section-label">選択中</div>
-        <div id="selected-image" class="selected-image"></div>
-        <div id="selected-fav-wrap"></div>
-        <div id="selected-prompt" class="prompt-text hidden"></div>
-        <div id="selected-date" class="date-text"></div>
+        <div class="selected-image-wrap">
+          <div id="selected-image" class="selected-image"></div>
+          <div class="overlay-back" onclick="goBack()">&larr;</div>
+          <div id="overlay-fav" class="overlay-fav"></div>
+        </div>
       </div>
 
       <!-- 生成フォーム -->
-      <div class="generate-form">
+      <div id="gen-form-toggle" class="gen-form-toggle hidden" onclick="toggleGenForm()">＋ 追加生成</div>
+      <div id="gen-form-body" class="generate-form">
         <label class="input-label">プロンプト</label>
         <div id="gen-prompt-history" class="prompt-history"></div>
         <textarea id="gen-prompt" placeholder="生成内容を入力..."></textarea>
-
         <div class="option-row">
           <span class="option-label">枚数</span>
           <input type="number" id="gen-count" value="10" min="1" max="20">
@@ -80,7 +74,6 @@
             <option value="16:9">16:9</option>
           </select>
         </div>
-
         <button id="gen-btn" class="btn btn-primary" onclick="generate()">生成する</button>
         <div id="gen-progress" class="hidden">
           <div class="progress"><div id="gen-progress-bar" class="progress-bar"></div></div>
@@ -90,8 +83,6 @@
 
       <!-- 子画像 (レビューUI) -->
       <div id="children-section" class="hidden">
-        <div class="arrow-down">&darr;</div>
-        <div id="children-label" class="section-label"></div>
         <div id="children-viewer" class="children-viewer">
           <div class="review-arrow review-arrow-l" onclick="reviewPrev()">&lsaquo;</div>
           <img id="children-viewer-img">
