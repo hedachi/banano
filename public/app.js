@@ -2,7 +2,8 @@ let currentFilter = 'favorites';
 let currentImageId = null;
 let currentImageData = null;
 let currentView = 'gallery'; // gallery, detail
-let detailMode = 'normal'; // normal, review
+let reviewChildren = [];
+let reviewIndex = 0;
 
 // --- プロンプト履歴 (localStorage, 直近5件) ---
 
@@ -62,15 +63,7 @@ function hideAllViews() {
 }
 
 function goBack() {
-  if (detailMode === 'review') {
-    if (reviewState.parentImage) {
-      showDetail(reviewState.parentImage.id);
-    } else {
-      showGallery();
-    }
-  } else {
-    showGallery();
-  }
+  showGallery();
 }
 
 function showGallery() {
@@ -81,7 +74,6 @@ function showGallery() {
   currentView = 'gallery';
   currentImageId = null;
   currentImageData = null;
-  detailMode = 'normal';
   loadGallery();
 }
 
@@ -102,22 +94,14 @@ function favBtnHtml(id, isFav) {
   return `<span class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${id}', this)"><span class="star">${isFav ? '&#9733;' : '&#9734;'}</span> ${isFav ? 'お気に入り' : 'お気に入りに追加'}</span>`;
 }
 
-function favBtnSmallHtml(id, isFav) {
-  return `<span class="fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${id}', this)"><span class="star">${isFav ? '&#9733;' : '&#9734;'}</span></span>`;
-}
-
 async function showDetail(id) {
   currentView = 'detail';
-  detailMode = 'normal';
 
   hideAllViews();
   document.getElementById('detail-view').classList.remove('hidden');
-  document.getElementById('detail-normal').classList.remove('hidden');
-  document.getElementById('detail-review').classList.add('hidden');
   document.getElementById('header-back').classList.remove('hidden');
 
   if (id === null) {
-    // ベースなし生成モード
     currentImageId = null;
     currentImageData = null;
     document.getElementById('header-title').textContent = '新規生成';
@@ -137,17 +121,13 @@ async function showDetail(id) {
     const parentSection = document.getElementById('parent-section');
     if (data.parent) {
       parentSection.classList.remove('hidden');
-      document.getElementById('parent-thumb').innerHTML =
-        `<img src="/uploads/${data.parent.filename}">`;
+      document.getElementById('parent-thumb').innerHTML = `<img src="/uploads/${data.parent.filename}">`;
     } else {
       parentSection.classList.add('hidden');
     }
 
     // 選択画像
-    document.getElementById('selected-image').innerHTML =
-      `<img src="/uploads/${data.filename}">`;
-
-    // お気に入りボタン
+    document.getElementById('selected-image').innerHTML = `<img src="/uploads/${data.filename}">`;
     document.getElementById('selected-fav-wrap').innerHTML = favBtnHtml(data.id, data.is_favorite);
 
     const promptEl = document.getElementById('selected-prompt');
@@ -159,23 +139,16 @@ async function showDetail(id) {
     }
 
     const d = new Date(data.created_at);
-    document.getElementById('selected-date').textContent =
-      d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+    document.getElementById('selected-date').textContent = d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
-    // 子画像
+    // 子画像 (レビューUI)
     const childSection = document.getElementById('children-section');
     if (data.children.length > 0) {
       childSection.classList.remove('hidden');
-      document.getElementById('children-label').innerHTML = `子画像 (${data.children.length}) <span class="review-link" onclick="openReviewFromDetail()">レビュー</span>`;
-      document.getElementById('children-grid').innerHTML = data.children.map(c => `
-        <div class="img-card-wrap">
-          <div class="img-card" onclick="showDetail('${c.id}')">
-            <img src="/uploads/${c.filename}" loading="lazy">
-            ${c.descendant_count > 0 ? `<span class="badge">${c.descendant_count}</span>` : ''}
-          </div>
-          ${favBtnSmallHtml(c.id, c.is_favorite)}
-        </div>
-      `).join('');
+      document.getElementById('children-label').textContent = `子画像 (${data.children.length})`;
+      reviewChildren = data.children.map(c => ({ id: c.id, filename: c.filename, is_favorite: c.is_favorite }));
+      reviewIndex = 0;
+      updateReviewChild();
     } else {
       childSection.classList.add('hidden');
     }
@@ -183,10 +156,7 @@ async function showDetail(id) {
     document.getElementById('gen-count').value = '10';
   }
 
-  // プロンプト履歴
   renderPromptHistory('gen-prompt-history', 'gen-prompt');
-
-  // プロンプト欄をリセット
   document.getElementById('gen-prompt').value = '';
   document.getElementById('gen-progress').classList.add('hidden');
   document.getElementById('gen-btn').disabled = false;
@@ -199,13 +169,44 @@ function navigateToParent() {
 async function toggleFavorite(id, btnEl) {
   const res = await fetch(`/api/images/${id}/favorite`, { method: 'POST' });
   const { is_favorite } = await res.json();
-  const isSmall = !btnEl.textContent.includes('お気に入り');
-  if (isSmall) {
-    btnEl.querySelector('.star').innerHTML = is_favorite ? '&#9733;' : '&#9734;';
-  } else {
-    btnEl.innerHTML = `<span class="star">${is_favorite ? '&#9733;' : '&#9734;'}</span> ${is_favorite ? 'お気に入り' : 'お気に入りに追加'}`;
-  }
+  btnEl.innerHTML = `<span class="star">${is_favorite ? '&#9733;' : '&#9734;'}</span> ${is_favorite ? 'お気に入り' : 'お気に入りに追加'}`;
   btnEl.classList.toggle('active', !!is_favorite);
+}
+
+// --- 子画像レビュー ---
+
+function updateReviewChild() {
+  const child = reviewChildren[reviewIndex];
+  document.getElementById('children-viewer-img').src = `/uploads/${child.filename}`;
+  document.getElementById('children-counter').textContent = `${reviewIndex + 1} / ${reviewChildren.length}`;
+
+  document.getElementById('children-dots').innerHTML = reviewChildren.map((_, i) =>
+    `<div class="review-dot ${i === reviewIndex ? 'active' : ''}"></div>`
+  ).join('');
+
+  const favBtn = document.getElementById('children-fav-btn');
+  favBtn.innerHTML = child.is_favorite ? '&#9733; お気に入り' : '&#9734; お気に入り';
+  favBtn.classList.toggle('active', !!child.is_favorite);
+}
+
+function reviewPrev() {
+  if (reviewIndex > 0) { reviewIndex--; updateReviewChild(); }
+}
+
+function reviewNext() {
+  if (reviewIndex < reviewChildren.length - 1) { reviewIndex++; updateReviewChild(); }
+}
+
+async function reviewToggleFav() {
+  const child = reviewChildren[reviewIndex];
+  const res = await fetch(`/api/images/${child.id}/favorite`, { method: 'POST' });
+  const { is_favorite } = await res.json();
+  child.is_favorite = is_favorite;
+  updateReviewChild();
+}
+
+function reviewUseAsBase() {
+  showDetail(reviewChildren[reviewIndex].id);
 }
 
 // --- 生成 ---
@@ -228,11 +229,10 @@ async function generate() {
   barEl.style.width = '0%';
   textEl.textContent = '生成中... 0/' + count;
 
-  const parentImage = currentImageId ? { id: currentImageId, filename: currentImageData.filename } : null;
-  const generatedChildren = [];
-
   const body = { prompt, count, temperature, aspect_ratio };
   if (currentImageId) body.parent_id = currentImageId;
+
+  const generatedChildren = [];
 
   const res = await fetch('/api/generate', {
     method: 'POST',
@@ -255,107 +255,31 @@ async function generate() {
       const data = JSON.parse(line.slice(6));
       if (data.done) {
         document.getElementById('gen-btn').disabled = false;
-        if (generatedChildren.length > 0) {
-          if (parentImage) {
-            showDetailReview(parentImage, generatedChildren, prompt);
-          } else {
-            // ベースなし生成 → 最初の結果画像の詳細に遷移
-            showDetail(generatedChildren[0].id);
-          }
+        if (currentImageId) {
+          await showDetail(currentImageId);
+        } else if (generatedChildren.length > 0) {
+          showDetail(generatedChildren[0].id);
         } else {
-          if (currentImageId) {
-            await showDetail(currentImageId);
-          } else {
-            showGallery();
-          }
+          showGallery();
         }
         return;
       }
       barEl.style.width = (data.completed / data.total * 100) + '%';
       textEl.textContent = `生成中... ${data.completed}/${data.total}`;
       if (data.result) {
-        generatedChildren.push({ ...data.result, is_favorite: 0 });
+        generatedChildren.push(data.result);
       }
     }
   }
   document.getElementById('gen-btn').disabled = false;
 }
 
-// --- レビューモード (detail内) ---
-
-let reviewState = { parentImage: null, childImages: [], currentIndex: 0, prompt: '' };
-
-function showDetailReview(parentImage, childImages, prompt) {
-  reviewState = { parentImage, childImages, currentIndex: 0, prompt };
-  detailMode = 'review';
-
-  document.getElementById('detail-normal').classList.add('hidden');
-  document.getElementById('detail-review').classList.remove('hidden');
-  document.getElementById('header-title').textContent = `生成結果 (${childImages.length}枚)`;
-
-  document.getElementById('review-before-img').src = `/uploads/${parentImage.filename}`;
-  document.getElementById('review-prompt').textContent = `"${prompt}"`;
-
-  updateReviewChild();
-}
-
-function updateReviewChild() {
-  const { childImages, currentIndex } = reviewState;
-  const child = childImages[currentIndex];
-
-  document.getElementById('review-after-img').src = `/uploads/${child.filename}`;
-  document.getElementById('review-counter').textContent = `${currentIndex + 1} / ${childImages.length}`;
-
-  document.getElementById('review-dots').innerHTML = childImages.map((_, i) =>
-    `<div class="review-dot ${i === currentIndex ? 'active' : ''}"></div>`
-  ).join('');
-
-  const favBtn = document.getElementById('review-fav-btn');
-  favBtn.innerHTML = child.is_favorite ? '&#9733; お気に入り' : '&#9734; お気に入り';
-  favBtn.classList.toggle('active', !!child.is_favorite);
-}
-
-function reviewPrev() {
-  if (reviewState.currentIndex > 0) {
-    reviewState.currentIndex--;
-    updateReviewChild();
-  }
-}
-
-function reviewNext() {
-  if (reviewState.currentIndex < reviewState.childImages.length - 1) {
-    reviewState.currentIndex++;
-    updateReviewChild();
-  }
-}
-
-async function reviewToggleFav() {
-  const child = reviewState.childImages[reviewState.currentIndex];
-  const res = await fetch(`/api/images/${child.id}/favorite`, { method: 'POST' });
-  const { is_favorite } = await res.json();
-  child.is_favorite = is_favorite;
-  updateReviewChild();
-}
-
-function reviewUseAsBase() {
-  const child = reviewState.childImages[reviewState.currentIndex];
-  showDetail(child.id);
-}
-
-function openReviewFromDetail() {
-  if (!currentImageData || currentImageData.children.length === 0) return;
-  const parent = { id: currentImageId, filename: currentImageData.filename };
-  const children = currentImageData.children.map(c => ({ id: c.id, filename: c.filename, is_favorite: c.is_favorite }));
-  const prompt = currentImageData.children[0].prompt || '';
-  showDetailReview(parent, children, prompt);
-}
-
 // タッチスワイプ
 document.addEventListener('DOMContentLoaded', () => {
-  const afterEl = document.getElementById('review-after');
+  const viewer = document.getElementById('children-viewer');
   let touchStartX = 0;
-  afterEl.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
-  afterEl.addEventListener('touchend', e => {
+  viewer.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  viewer.addEventListener('touchend', e => {
     const dx = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(dx) > 50) {
       if (dx < 0) reviewNext();
