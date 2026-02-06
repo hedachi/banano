@@ -184,7 +184,7 @@ function updateReviewChild() {
   document.getElementById('children-counter').textContent = `${reviewIndex + 1} / ${reviewChildren.length}`;
 
   document.getElementById('children-dots').innerHTML = reviewChildren.map((_, i) =>
-    `<div class="review-dot ${i === reviewIndex ? 'active' : ''}"></div>`
+    `<span class="review-dot ${i === reviewIndex ? 'active' : ''}"></span>`
   ).join('');
 
   const favBtn = document.getElementById('children-fav-btn');
