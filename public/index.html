@@ -51,6 +51,10 @@
       <!-- 生成フォーム -->
       <div id="gen-form-toggle" class="gen-form-toggle hidden" onclick="toggleGenForm()">＋ 追加生成</div>
       <div id="gen-form-body" class="generate-form">
+        <div class="option-row">
+          <span class="option-label">モデル</span>
+          <select id="gen-model" onchange="onModelChange()"></select>
+        </div>
         <label class="input-label">プロンプト</label>
         <div id="gen-prompt-history" class="prompt-history"></div>
         <textarea id="gen-prompt" placeholder="生成内容を入力..."></textarea>
@@ -64,7 +68,7 @@
           </div>
           <input type="number" id="gen-count" value="10" min="1" max="20" class="hidden" onblur="hideCountInput()" onkeydown="if(event.key==='Enter'){hideCountInput()}">
         </div>
-        <div class="option-row">
+        <div class="option-row" id="temp-row">
           <span class="option-label">Temperature</span>
           <input type="range" id="gen-temp" min="0" max="2" step="0.1" value="1.0" oninput="document.getElementById('gen-temp-val').textContent=this.value">
           <span id="gen-temp-val" class="slider-val">1.0</span>

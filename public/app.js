@@ -5,6 +5,21 @@ let currentView = 'gallery'; // gallery, detail
 let reviewChildren = [];
 let reviewIndex = 0;
 let genFormOpen = true;
+let availableModels = [];
+
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  const { models } = await res.json();
+  availableModels = models;
+  const sel = document.getElementById('gen-model');
+  sel.innerHTML = models.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+  onModelChange();
+}
+
+function onModelChange() {
+  const isOpenAI = document.getElementById('gen-model').value.startsWith('gpt-');
+  document.getElementById('temp-row').classList.toggle('hidden', isOpenAI);
+}
 
 // --- プロンプト履歴 (localStorage, 直近5件) ---
 
@@ -245,6 +260,7 @@ async function generate() {
   const count = parseInt(document.getElementById('gen-count').value);
   const temperature = parseFloat(document.getElementById('gen-temp').value);
   const aspect_ratio = document.getElementById('gen-aspect').value;
+  const model = document.getElementById('gen-model').value;
 
   document.getElementById('gen-btn').disabled = true;
   const progressEl = document.getElementById('gen-progress');
@@ -254,7 +270,7 @@ async function generate() {
   barEl.style.width = '0%';
   textEl.textContent = '生成中... 0/' + count;
 
-  const body = { prompt, count, temperature, aspect_ratio };
+  const body = { prompt, count, temperature, aspect_ratio, model };
   if (currentImageId) body.parent_id = currentImageId;
 
   const generatedChildren = [];
@@ -314,4 +330,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // 初期読み込み
+loadConfig();
 loadGallery();

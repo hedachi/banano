@@ -9,11 +9,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const API_KEY = process.env.GOOGLE_API_KEY;
-if (!API_KEY) {
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+if (!GOOGLE_API_KEY) {
   console.error('エラー: GOOGLE_API_KEY が設定されていません');
   process.exit(1);
 }
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +48,16 @@ const upload = multer({ storage });
 app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
+
+// API: 利用可能モデル一覧
+app.get('/api/config', (req, res) => {
+  const models = [{ value: 'gemini', label: 'Gemini' }];
+  if (OPENAI_API_KEY) {
+    models.push({ value: 'gpt-image-1', label: 'GPT Image 1' });
+    models.push({ value: 'gpt-image-1.5', label: 'GPT Image 1.5' });
+  }
+  res.json({ models });
+});
 
 // 子孫数を取得する再帰CTE
 function getDescendantCount(id) {
@@ -114,12 +125,47 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   res.json(formatImage(image));
 });
 
+// OpenAI画像生成
+async function generateOneOpenAI(modelName, prompt, parentFilePath, parentMimeType, aspectRatio) {
+  const sizeMap = { '1:1': '1024x1024', '3:4': '1024x1536', '9:16': '1024x1536', '4:3': '1536x1024', '16:9': '1536x1024' };
+  const size = sizeMap[aspectRatio] || '1024x1024';
+
+  let resBody;
+  if (parentFilePath) {
+    const form = new FormData();
+    form.append('model', modelName);
+    form.append('prompt', prompt);
+    form.append('n', '1');
+    form.append('size', size);
+    const fileData = await fs.readFile(parentFilePath);
+    form.append('image[]', new Blob([fileData], { type: parentMimeType }), path.basename(parentFilePath));
+    const res = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: form
+    });
+    resBody = await res.json();
+  } else {
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelName, prompt, n: 1, size })
+    });
+    resBody = await res.json();
+  }
+
+  if (resBody.error) throw new Error(resBody.error.message);
+  const b64 = resBody.data[0].b64_json;
+  return Buffer.from(b64, 'base64');
+}
+
 // API: 画像生成 (SSE)
 app.post('/api/generate', express.json(), async (req, res) => {
-  const { parent_id, prompt, count = 1, temperature = 1.0, aspect_ratio } = req.body;
+  const { parent_id, prompt, count = 1, temperature = 1.0, aspect_ratio, model: modelParam } = req.body;
   if (!prompt) return res.status(400).json({ error: 'プロンプトが必要です' });
 
   const numCount = Math.min(Math.max(parseInt(count), 1), 20);
+  const isOpenAI = modelParam && modelParam.startsWith('gpt-');
 
   // SSE
   res.writeHead(200, {
@@ -128,28 +174,43 @@ app.post('/api/generate', express.json(), async (req, res) => {
     'Connection': 'keep-alive'
   });
 
+  let parentFilePath = null;
+  let parentMimeType = null;
   let parentImageData = null;
   if (parent_id) {
     const parentRow = db.prepare('SELECT * FROM images WHERE id = ?').get(parent_id);
     if (parentRow) {
-      const filePath = path.join('uploads', parentRow.filename);
-      const data = await fs.readFile(filePath);
+      parentFilePath = path.join('uploads', parentRow.filename);
       const ext = path.extname(parentRow.filename).toLowerCase().slice(1);
-      const mimeType = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' }[ext] || 'image/jpeg';
-      parentImageData = { inlineData: { data: data.toString('base64'), mimeType } };
+      parentMimeType = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' }[ext] || 'image/jpeg';
+      if (!isOpenAI) {
+        const data = await fs.readFile(parentFilePath);
+        parentImageData = { inlineData: { data: data.toString('base64'), mimeType: parentMimeType } };
+      }
     }
   }
-
-  const genAI = new GoogleGenerativeAI(API_KEY);
-  const generationConfig = {};
-  if (temperature !== undefined) generationConfig.temperature = parseFloat(temperature);
-  if (aspect_ratio && aspect_ratio !== 'auto') generationConfig.aspectRatio = aspect_ratio;
 
   let completed = 0;
   const results = [];
 
   const generateOne = async (index) => {
     try {
+      if (isOpenAI) {
+        const buf = await generateOneOpenAI(modelParam, prompt, parent_id ? parentFilePath : null, parentMimeType, aspect_ratio);
+        const id = uuidv4();
+        const filename = `${id}.png`;
+        await fs.writeFile(path.join('uploads', filename), buf);
+        const now = new Date().toISOString();
+        db.prepare('INSERT INTO images (id, filename, parent_id, prompt, created_at) VALUES (?, ?, ?, ?, ?)')
+          .run(id, filename, parent_id || null, prompt, now);
+        return { id, filename };
+      }
+
+      // Gemini
+      const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+      const generationConfig = {};
+      if (temperature !== undefined) generationConfig.temperature = parseFloat(temperature);
+      if (aspect_ratio && aspect_ratio !== 'auto') generationConfig.aspectRatio = aspect_ratio;
       const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview', generationConfig });
       const fullPrompt = parentImageData
         ? `Generate an image based on this input image and the following instruction: ${prompt}\n\nIMPORTANT: Create a new image that follows the instruction while using the input image as reference.`
