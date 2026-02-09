@@ -53,7 +53,6 @@ app.use('/uploads', express.static('uploads'));
 app.get('/api/config', (req, res) => {
   const models = [{ value: 'gemini', label: 'Gemini' }];
   if (OPENAI_API_KEY) {
-    models.push({ value: 'gpt-image-1', label: 'GPT Image 1' });
     models.push({ value: 'gpt-image-1.5', label: 'GPT Image 1.5' });
   }
   res.json({ models });
