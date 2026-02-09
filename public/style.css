@@ -251,6 +251,30 @@ input[type="number"] {
   font-size: 14px;
   text-align: center;
 }
+.count-btns {
+  display: flex;
+  gap: 4px;
+}
+.count-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #fff;
+  color: #555;
+}
+.count-btn.active {
+  background: #4a6cf7;
+  color: #fff;
+  border-color: #4a6cf7;
+}
+.count-btn-custom { font-size: 11px; }
 input[type="range"] { flex: 1; }
 .slider-val {
   font-size: 13px;

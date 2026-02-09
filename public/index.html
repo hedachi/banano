@@ -56,7 +56,13 @@
         <textarea id="gen-prompt" placeholder="生成内容を入力..."></textarea>
         <div class="option-row">
           <span class="option-label">枚数</span>
-          <input type="number" id="gen-count" value="10" min="1" max="20">
+          <div id="gen-count-btns" class="count-btns">
+            <span class="count-btn" onclick="setCount(1)">1</span>
+            <span class="count-btn" onclick="setCount(5)">5</span>
+            <span class="count-btn active" onclick="setCount(10)">10</span>
+            <span class="count-btn count-btn-custom" onclick="showCountInput()">...</span>
+          </div>
+          <input type="number" id="gen-count" value="10" min="1" max="20" class="hidden" onblur="hideCountInput()" onkeydown="if(event.key==='Enter'){hideCountInput()}">
         </div>
         <div class="option-row">
           <span class="option-label">Temperature</span>

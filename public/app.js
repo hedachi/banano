@@ -116,7 +116,7 @@ async function showDetail(id) {
     document.getElementById('gen-form-toggle').classList.add('hidden');
     document.getElementById('gen-form-body').classList.remove('hidden');
     genFormOpen = true;
-    document.getElementById('gen-count').value = '1';
+    setCount(1);
   } else {
     const res = await fetch(`/api/images/${id}`);
     const data = await res.json();
@@ -157,7 +157,7 @@ async function showDetail(id) {
       genFormOpen = true;
     }
 
-    document.getElementById('gen-count').value = '10';
+    setCount(10);
   }
 
   renderPromptHistory('gen-prompt-history', 'gen-prompt');
@@ -168,6 +168,28 @@ async function showDetail(id) {
 
 function navigateToParent() {
   if (currentImageData?.parent) showDetail(currentImageData.parent.id);
+}
+
+function setCount(n) {
+  document.getElementById('gen-count').value = n;
+  document.querySelectorAll('.count-btn').forEach(b => b.classList.toggle('active', parseInt(b.textContent) === n));
+}
+
+function showCountInput() {
+  document.getElementById('gen-count-btns').classList.add('hidden');
+  const input = document.getElementById('gen-count');
+  input.classList.remove('hidden');
+  input.focus();
+  input.select();
+}
+
+function hideCountInput() {
+  const input = document.getElementById('gen-count');
+  const v = parseInt(input.value) || 10;
+  input.value = Math.max(1, Math.min(20, v));
+  input.classList.add('hidden');
+  document.getElementById('gen-count-btns').classList.remove('hidden');
+  document.querySelectorAll('.count-btn').forEach(b => b.classList.toggle('active', parseInt(b.textContent) === parseInt(input.value)));
 }
 
 function toggleGenForm() {
