@@ -62,11 +62,10 @@
           <span class="option-label">枚数</span>
           <div id="gen-count-btns" class="count-btns">
             <span class="count-btn" onclick="setCount(1)">1</span>
-            <span class="count-btn" onclick="setCount(5)">5</span>
-            <span class="count-btn active" onclick="setCount(10)">10</span>
-            <span class="count-btn count-btn-custom" onclick="showCountInput()">...</span>
+            <span class="count-btn" onclick="setCount(2)">2</span>
+            <span class="count-btn active" onclick="setCount(3)">3</span>
           </div>
-          <input type="number" id="gen-count" value="10" min="1" max="20" class="hidden" onblur="hideCountInput()" onkeydown="if(event.key==='Enter'){hideCountInput()}">
+          <input type="number" id="gen-count" value="3" min="1" max="3" class="hidden">
         </div>
         <div class="option-row" id="temp-row">
           <span class="option-label">Temperature</span>

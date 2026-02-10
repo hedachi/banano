@@ -34,6 +34,7 @@ db.exec(`
     FOREIGN KEY (parent_id) REFERENCES images(id)
   )
 `);
+try { db.exec('ALTER TABLE images ADD COLUMN is_rejected INTEGER DEFAULT 0'); } catch {}
 
 // Multer
 const storage = multer.diskStorage({
@@ -62,9 +63,9 @@ app.get('/api/config', (req, res) => {
 function getDescendantCount(id) {
   const row = db.prepare(`
     WITH RECURSIVE desc(id) AS (
-      SELECT id FROM images WHERE parent_id = ?
+      SELECT id FROM images WHERE parent_id = ? AND is_rejected = 0
       UNION ALL
-      SELECT i.id FROM images i JOIN desc d ON i.parent_id = d.id
+      SELECT i.id FROM images i JOIN desc d ON i.parent_id = d.id WHERE i.is_rejected = 0
     )
     SELECT COUNT(*) as cnt FROM desc
   `).get(id);
@@ -80,9 +81,9 @@ app.get('/api/images', (req, res) => {
   const { filter } = req.query;
   let rows;
   if (filter === 'favorites') {
-    rows = db.prepare('SELECT * FROM images WHERE is_favorite = 1 ORDER BY created_at DESC').all();
+    rows = db.prepare('SELECT * FROM images WHERE is_favorite = 1 AND is_rejected = 0 ORDER BY created_at DESC').all();
   } else {
-    rows = db.prepare('SELECT * FROM images ORDER BY created_at DESC').all();
+    rows = db.prepare('SELECT * FROM images WHERE is_rejected = 0 ORDER BY created_at DESC').all();
   }
   res.json(rows.map(formatImage));
 });
@@ -95,7 +96,7 @@ app.get('/api/images/:id', (req, res) => {
   const parent = image.parent_id
     ? db.prepare('SELECT * FROM images WHERE id = ?').get(image.parent_id)
     : null;
-  const children = db.prepare('SELECT * FROM images WHERE parent_id = ? ORDER BY created_at DESC').all(image.id);
+  const children = db.prepare('SELECT * FROM images WHERE parent_id = ? AND is_rejected = 0 ORDER BY created_at DESC').all(image.id);
 
   res.json({
     ...formatImage(image),
@@ -158,12 +159,45 @@ async function generateOneOpenAI(modelName, prompt, parentFilePath, parentMimeTy
   return Buffer.from(b64, 'base64');
 }
 
+// 候補画像の評価（ベスト選定）
+async function evaluateCandidates(prompt, parentImageParts, candidates) {
+  try {
+    const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const parts = [];
+    if (parentImageParts) {
+      parts.push('元画像（編集前）:');
+      parts.push(parentImageParts);
+    }
+
+    for (let i = 0; i < candidates.length; i++) {
+      parts.push(`候補${i + 1}:`);
+      const imgData = await fs.readFile(path.join('uploads', candidates[i].filename));
+      const ext = path.extname(candidates[i].filename).toLowerCase().slice(1);
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      parts.push({ inlineData: { data: imgData.toString('base64'), mimeType } });
+    }
+
+    parts.push(`以下のプロンプトに最も忠実な画像の番号を1つだけ回答してください。数字のみ（例: 1）で回答。\n\nプロンプト: ${prompt}`);
+
+    const result = await model.generateContent(parts);
+    const text = result.response.text().trim();
+    const num = parseInt(text);
+    if (num >= 1 && num <= candidates.length) return num - 1;
+    return 0;
+  } catch (e) {
+    console.error('評価エラー:', e.message);
+    return 0;
+  }
+}
+
 // API: 画像生成 (SSE)
 app.post('/api/generate', express.json(), async (req, res) => {
   const { parent_id, prompt, count = 1, temperature = 1.0, aspect_ratio, model: modelParam } = req.body;
   if (!prompt) return res.status(400).json({ error: 'プロンプトが必要です' });
 
-  const numCount = Math.min(Math.max(parseInt(count), 1), 20);
+  const numCount = Math.min(Math.max(parseInt(count), 1), 3);
   const isOpenAI = modelParam && modelParam.startsWith('gpt-');
 
   // SSE
@@ -182,15 +216,15 @@ app.post('/api/generate', express.json(), async (req, res) => {
       parentFilePath = path.join('uploads', parentRow.filename);
       const ext = path.extname(parentRow.filename).toLowerCase().slice(1);
       parentMimeType = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' }[ext] || 'image/jpeg';
-      if (!isOpenAI) {
-        const data = await fs.readFile(parentFilePath);
-        parentImageData = { inlineData: { data: data.toString('base64'), mimeType: parentMimeType } };
-      }
+      const data = await fs.readFile(parentFilePath);
+      parentImageData = { inlineData: { data: data.toString('base64'), mimeType: parentMimeType } };
     }
   }
 
+  const CANDIDATES = 3;
+  const actualCount = numCount * CANDIDATES;
   let completed = 0;
-  const results = [];
+  const slotResults = Array.from({ length: numCount }, () => []);
 
   const generateOne = async (index) => {
     try {
@@ -241,18 +275,46 @@ app.post('/api/generate', express.json(), async (req, res) => {
     }
   };
 
-  // 並列生成
-  const promises = Array.from({ length: numCount }, (_, i) =>
-    generateOne(i + 1).then(result => {
-      completed++;
-      const event = { completed, total: numCount, result };
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-      if (result) results.push(result);
-    })
-  );
+  // 並列で候補生成 (各枠3候補)
+  const promises = [];
+  for (let slot = 0; slot < numCount; slot++) {
+    for (let c = 0; c < CANDIDATES; c++) {
+      const idx = slot * CANDIDATES + c;
+      const s = slot;
+      promises.push(
+        generateOne(idx + 1).then(result => {
+          completed++;
+          res.write(`data: ${JSON.stringify({ phase: 'generating', completed, total: actualCount })}\n\n`);
+          if (result) slotResults[s].push(result);
+        })
+      );
+    }
+  }
 
   await Promise.all(promises);
-  res.write(`data: ${JSON.stringify({ done: true, results })}\n\n`);
+
+  // 各枠のベスト選定
+  const winners = [];
+  for (let slot = 0; slot < numCount; slot++) {
+    const candidates = slotResults[slot];
+    if (candidates.length === 0) continue;
+
+    let bestIdx = 0;
+    if (candidates.length >= 2) {
+      res.write(`data: ${JSON.stringify({ phase: 'evaluating', completed: slot, total: numCount })}\n\n`);
+      bestIdx = await evaluateCandidates(prompt, parentImageData, candidates);
+    }
+
+    winners.push(candidates[bestIdx]);
+    for (let i = 0; i < candidates.length; i++) {
+      if (i !== bestIdx) {
+        db.prepare('UPDATE images SET is_rejected = 1 WHERE id = ?').run(candidates[i].id);
+      }
+    }
+  }
+
+  res.write(`data: ${JSON.stringify({ phase: 'evaluating', completed: numCount, total: numCount })}\n\n`);
+  res.write(`data: ${JSON.stringify({ done: true, results: winners })}\n\n`);
   res.end();
 });
 

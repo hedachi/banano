@@ -172,7 +172,7 @@ async function showDetail(id) {
       genFormOpen = true;
     }
 
-    setCount(10);
+    setCount(3);
   }
 
   renderPromptHistory('gen-prompt-history', 'gen-prompt');
@@ -201,7 +201,7 @@ function showCountInput() {
 function hideCountInput() {
   const input = document.getElementById('gen-count');
   const v = parseInt(input.value) || 10;
-  input.value = Math.max(1, Math.min(20, v));
+  input.value = Math.max(1, Math.min(3, v));
   input.classList.add('hidden');
   document.getElementById('gen-count-btns').classList.remove('hidden');
   document.querySelectorAll('.count-btn').forEach(b => b.classList.toggle('active', parseInt(b.textContent) === parseInt(input.value)));
@@ -295,6 +295,7 @@ async function generate() {
       if (!line.startsWith('data: ')) continue;
       const data = JSON.parse(line.slice(6));
       if (data.done) {
+        generatedChildren = data.results || [];
         document.getElementById('gen-btn').disabled = false;
         if (currentImageId) {
           await showDetail(currentImageId);
@@ -305,10 +306,12 @@ async function generate() {
         }
         return;
       }
-      barEl.style.width = (data.completed / data.total * 100) + '%';
-      textEl.textContent = `生成中... ${data.completed}/${data.total}`;
-      if (data.result) {
-        generatedChildren.push(data.result);
+      if (data.phase === 'evaluating') {
+        barEl.style.width = '100%';
+        textEl.textContent = `選定中... ${data.completed}/${data.total}`;
+      } else {
+        barEl.style.width = (data.completed / data.total * 100) + '%';
+        textEl.textContent = `候補生成中... ${data.completed}/${data.total}`;
       }
     }
   }

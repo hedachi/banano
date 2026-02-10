@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:docs.aimlapi.com)",
+      "WebFetch(domain:www.analyticsvidhya.com)",
+      "WebFetch(domain:img.ly)"
     ],
     "deny": [],
     "ask": []
