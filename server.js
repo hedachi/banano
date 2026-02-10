@@ -184,6 +184,7 @@ async function evaluateCandidates(prompt, parentImageParts, candidates) {
     const result = await model.generateContent(parts);
     const text = result.response.text().trim();
     const num = parseInt(text);
+    console.log(`評価結果: "${text}" → 候補${num}を選択 (${candidates.length}候補中)`);
     if (num >= 1 && num <= candidates.length) return num - 1;
     return 0;
   } catch (e) {
@@ -313,9 +314,9 @@ app.post('/api/generate', express.json(), async (req, res) => {
     }
   }
 
-  res.write(`data: ${JSON.stringify({ phase: 'evaluating', completed: numCount, total: numCount })}\n\n`);
   res.write(`data: ${JSON.stringify({ done: true, results: winners })}\n\n`);
-  res.end();
+  // done送信後、クライアントが読み取る前にコネクションが閉じるのを防ぐ
+  setTimeout(() => res.end(), 500);
 });
 
 app.listen(PORT, '0.0.0.0', () => {

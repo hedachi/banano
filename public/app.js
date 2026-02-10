@@ -315,7 +315,13 @@ async function generate() {
       }
     }
   }
+  // ストリーム終了時のフォールバック（doneイベントを受信できなかった場合）
   document.getElementById('gen-btn').disabled = false;
+  if (currentImageId) {
+    await showDetail(currentImageId);
+  } else {
+    showGallery();
+  }
 }
 
 // タッチスワイプ
